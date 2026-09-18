@@ -27,7 +27,7 @@
 
 ```bash
 # 1) 全部测试（标准库 unittest，无需 pytest）
-./run_tests.sh
+./run_tests.sh          # 若执行位丢失：bash run_tests.sh
 
 # 2) 冒烟：跑一局 Greedy，打印关键统计
 python3 scripts/smoke.py 0
