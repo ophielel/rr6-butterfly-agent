@@ -83,6 +83,12 @@ def eval_condition(cond: Optional[dict], ctx: Ctx) -> bool:
             return False
         return True
 
+    if "cracked" in cond:
+        return bool(ctx.cracked) == cond["cracked"]
+    if "clash_result" in cond:
+        return ctx.clash_result == cond["clash_result"]
+    if "is_reuse" in cond:
+        return bool(ctx.is_reuse) == cond["is_reuse"]
     if "coin_heads" in cond:
         return ctx.coin_heads == cond["coin_heads"]
     if "coin_index_gte" in cond:

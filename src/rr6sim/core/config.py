@@ -31,9 +31,12 @@ class SimConfig:
     #: 精神力对硬币正面的影响：P(正面) = 0.5 + SP * san_per_point
     san_per_point: float = 0.01
     #: 攻击等级每高于对方防御等级 1 点，伤害 ±3%
-    level_diff_damage_per_level: float = 0.03
+    level_diff_damage_per_level: float = 0.03  # 已废弃：真实公式见 damage.compute_damage
+    #: Damage Formula 的 Observation Level 修正（RR 里通常为 0，保留字段以便复现）
+    observation_level_modifier: float = 0.0
     #: 拼点时攻击等级差的影响（每 3 点差 +1 威力）。默认 0（保守，待游戏内校验）
-    clash_level_bonus_per_3: float = 0.0
+    #: 拼点威力：高等级方每 3 级差 +1 威力（wiki.gg/Battles，向下取整）
+    clash_level_bonus_per_3: float = 1.0
     #: 拼点胜利后，已翻出的硬币正反面结果是否沿用到伤害阶段
     clash_coin_carryover: bool = True
     #: 拼点平手：双方硬币一起破坏
@@ -62,15 +65,28 @@ class SimConfig:
 
     # ---- 资源 ----
     sin_resources: str = "infinite"  # infinite / finite
-    corrosion_enabled: bool = True
+    #: E.G.O 侵蚀判定模式（真实规则 = "rng"）：
+    #:   rng        —— SP 为负时按概率侵蚀；SP 消耗后 ≤ −45 必定侵蚀（真实）
+    #:   auto_only  —— 只保留「≤ −45 必定侵蚀」，不做概率（deterministic curriculum）
+    #:   never      —— 永远觉醒（仅用于对照实验）
+    corrosion_mode: str = "rng"
+    #: 侵蚀概率：SP 为负时，|SP|/45 × 该系数（wiki 只给出单个 E.G.O 的界面百分比，具体曲线待校验）
+    corrosion_chance_at_min_sp: float = 0.75
+    #: Overclock（超频）：花 1.5× 代价获得「去掉 Indiscriminate 的侵蚀技能」
+    overclock_multiplier: float = 1.5
+    #: 同一回合同一 E.G.O 不能用两次（真实规则；侵蚀/外部效果除外）
+    allow_same_ego_twice_per_turn: bool = False
+    #: 无 SP 单位（Abnormality）受到 Sinking 时改为等强度的 Gloom 伤害（真实规则）
+    sinking_vs_no_sp_deals_gloom_damage: bool = True
     ego_resistance_override: bool = True
     ego_passives_enabled: bool = True
 
     # ---- 消融开关（计划书 §17）----
     sinking_enabled: bool = True
     butterfly_special_sinking: bool = True  # 「蝶」的额外沉沦/HP 伤害
-    #: 重复投掷 / 追加硬币的总开关（消融 E）
-    repeat_coin_enabled: bool = True
+    #: Coin Reuse / 追加硬币的总开关（消融 E）
+    #: 真实规则见 docs/audit_report.md §1：只有指定硬币的 reuse（reuse_coin）。
+    coin_reuse_enabled: bool = True
     #: 单枚硬币最多重复投掷几次（防无限递归的安全阀）
     max_repeat_per_coin: int = 4
     disabled_identities: list = field(default_factory=list)
@@ -123,7 +139,7 @@ class SimConfig:
             cfg.speed_mode = "fixed"
             cfg.skill_draw_mode = "fixed"
             cfg.boss_ai = "script"
-        if not cfg.repeat_coin_enabled:
+        if not cfg.coin_reuse_enabled:
             # 消融 E：关闭「重复硬币」——由效果层统一过滤，见 effects.py
             pass
         return cfg

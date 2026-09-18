@@ -35,6 +35,8 @@ class Coin:
     damage: int = 0
     effects: list = field(default_factory=list)
     reusable: bool = False  # 被「重复投掷」时是否可再次触发命中效果（默认可以）
+    #: Unbreakable Coin：拼点失败时不破坏而是变成 Cracked，仍会结算（威力固定 1/−1）
+    unbreakable: bool = False
 
     def favorable(self, heads: bool) -> bool:
         """该正面/反面结果是否对硬币有利。"""
@@ -47,6 +49,7 @@ class Coin:
             "damage": self.damage,
             "effects": self.effects,
             "reusable": self.reusable,
+            "unbreakable": self.unbreakable,
         }
 
     @staticmethod
@@ -57,6 +60,7 @@ class Coin:
             damage=int(d.get("damage", 0)),
             effects=list(d.get("effects", [])),
             reusable=bool(d.get("reusable", False)),
+            unbreakable=bool(d.get("unbreakable", False)),
         )
 
 
@@ -78,6 +82,10 @@ class Skill:
     sp_cost: int = 0
     kind: SlotKind = SlotKind.SKILL
     tags: list = field(default_factory=list)
+    #: 攻击权重（多目标；本实验尚未实现子目标选择）
+    atkweight: int = 1
+    #: HP 阈值 → 硬币转为 Unbreakable（真实 Imago 机制）
+    coin_thresholds: list = field(default_factory=list)
     description: str = ""
     source: str = ""
     confidence: str = "unverified"
@@ -102,6 +110,8 @@ class Skill:
             "sp_cost": self.sp_cost,
             "kind": self.kind.value,
             "tags": self.tags,
+            "atkweight": self.atkweight,
+            "coin_thresholds": self.coin_thresholds,
             "description": self.description,
             "source": self.source,
             "confidence": self.confidence,
@@ -124,6 +134,8 @@ class Skill:
             sp_cost=int(d.get("sp_cost", 0)),
             kind=SlotKind(d.get("kind", "skill")),
             tags=list(d.get("tags", [])),
+            atkweight=int(d.get("atkweight", 1)),
+            coin_thresholds=list(d.get("coin_thresholds", d.get("hp_threshold_coin_effects", []))),
             description=d.get("description", ""),
             source=d.get("source", ""),
             confidence=d.get("confidence", "unverified"),

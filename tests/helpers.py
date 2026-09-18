@@ -77,5 +77,16 @@ def all_heads(**kw) -> SimConfig:
     return SimConfig(**kw)
 
 
+def attack_with(self, actor: Unit, skill, target: Unit, slot_index: int = 0) -> None:
+    """直接攻击（测试辅助，绑定到 Battle）。"""
+    sk = CONTENT.skill(skill) if isinstance(skill, str) else skill
+    actor.state["_clash_bonus"] = 0
+    self.execute_attack(actor, actor.slots[slot_index], sk, target,
+                        __import__("rr6sim.core.enums", fromlist=["TargetMode"]).TargetMode.ONE_SIDED)
+
+
+Battle.attack_with = attack_with
+
+
 def coin_log(battle: Battle) -> list:
     return [e for e in battle.state.log if e.get("kind") == "coin"]

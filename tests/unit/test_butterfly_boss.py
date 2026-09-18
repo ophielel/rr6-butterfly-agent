@@ -1,156 +1,161 @@
-"""罗生蝶 Boss 机制验证（计划书 §18.1 的 Boss 相关条目）。"""
+"""罗生蝶::Imago 机制验证 —— 按 wiki.gg 的 ABPage / passive 原文重写。"""
 
 from __future__ import annotations
 
 import unittest
 
-from helpers import CONTENT, all_heads, attack, make_battle, make_skill, make_unit
+from helpers import CONTENT, make_unit
 from rr6sim.core.config import SimConfig
 from rr6sim.core.enums import Side
-from rr6sim.core.status import FUTURE, PAST, PRESENT
+from rr6sim.core.engine import Battle
+from rr6sim.core.state import BattleState
+from rr6sim.core.status import IN_THE_FUTURE, IN_THE_PAST, IN_THE_PRESENT
 
 
-def boss_field(**cfg_kw):
-    """构造「1 名我方 + 罗生蝶本体 + 三幻影」的测试战场。"""
-    cfg = SimConfig(**cfg_kw).normalized()
-    boss = CONTENT.make_enemy(CONTENT.boss_def, cfg, hp_override=6404)
-    phantoms = [CONTENT.make_enemy(ph, cfg, hp_override=1000) for ph in CONTENT.phantom_defs]
-    ally = make_unit("tester", Side.ALLY, hp=500, sp=30)
-    b = make_battle([ally], [boss] + phantoms, cfg)
-    for k in (PAST, PRESENT, FUTURE):
-        boss.add_status(k, count=2)
-    boss.state["form"] = "neutral"
-    b.state.turn = 1
-    return b, ally, boss, {p.uid: p for p in phantoms}
+def imago_battle(**cfg_kw):
+    cfg = SimConfig(boss_hp_scale=1.0, **cfg_kw).normalized()
+    allies, enemies = CONTENT.make_encounter(cfg)
+    st = BattleState(allies=allies, enemies=enemies, config=cfg, seed=0, rng_state=0)
+    b = Battle(st, CONTENT)
+    b.log_enabled = True
+    return b, {u.uid: u for u in allies}, {u.uid: u for u in enemies}
 
 
-class TestPhantomStacks(unittest.TestCase):
-    def test_each_coin_decays_matching_stack(self):
-        """攻击幻影：每枚硬币只削减对应的状态栈 1 层。"""
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        sk = make_skill("t_ph1", coins=3, power=0, damage=10)
-        attack(b, ally, ph["phantom_past"], sk)
-        self.assertEqual(boss.status_count(PAST), 0)   # 2 -> 0（不会变负）
-        self.assertEqual(boss.status_count(PRESENT), 2)
-        self.assertEqual(boss.status_count(FUTURE), 2)
+class TestImagoStats(unittest.TestCase):
+    def test_hp_formula(self):
+        """hp = base + hpgrowth × level = 9090 + 275.44 × 60 = 25616。"""
+        b, _, enemies = imago_battle()
+        self.assertEqual(enemies["boss"].hp, 25616)
 
-    def test_only_matching_phantom_decays(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        sk = make_skill("t_ph2", coins=2, power=0, damage=10)
-        attack(b, ally, ph["phantom_future"], sk)
-        self.assertEqual(boss.status_count(PAST), 2)
-        self.assertEqual(boss.status_count(PRESENT), 2)
-        self.assertEqual(boss.status_count(FUTURE), 0)
+    def test_stagger_thresholds_are_percent_of_max_hp(self):
+        b, _, enemies = imago_battle()
+        boss = enemies["boss"]
+        expected = [int(25616 * p) for p in (0.85, 0.65, 0.40, 0.10)]
+        self.assertEqual(boss.stagger_thresholds, expected)
 
-    def test_attacking_boss_does_not_decay_stacks(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        sk = make_skill("t_ph3", coins=3, power=0, damage=10)
-        attack(b, ally, boss, sk)
-        self.assertEqual([boss.status_count(k) for k in (PAST, PRESENT, FUTURE)], [2, 2, 2])
+    def test_resistances(self):
+        b, _, enemies = imago_battle()
+        boss = enemies["boss"]
+        from rr6sim.core.enums import Sin
+        self.assertAlmostEqual(boss.resistance_value(Sin.WRATH), 1.25)
+        self.assertAlmostEqual(boss.resistance_value(Sin.SLOTH), 0.75)
 
-    def test_repeat_coin_decays_stack_again(self):
-        """重复投掷属于新的硬币，会再削一层。"""
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        sk = make_skill("t_ph4", coins=2, power=0, damage=10, coin_effects=[
-            {"when": "on_hit", "kind": "repeat_coin", "times": 1}])
-        boss.set_status(PAST, 0, 10)
-        attack(b, ally, ph["phantom_past"], sk)
-        self.assertEqual(boss.status_count(PAST), 10 - 4)  # 2 枚硬币 × 2 次投掷
+    def test_boss_has_no_sanity(self):
+        b, _, enemies = imago_battle()
+        self.assertFalse(enemies["boss"].has_sanity)
 
-    def test_decay_can_be_disabled(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads", phantom_stack_decay_per_coin=0)
-        sk = make_skill("t_ph5", coins=3, power=0, damage=10)
-        attack(b, ally, ph["phantom_past"], sk)
-        self.assertEqual(boss.status_count(PAST), 2)
+    def test_speed_range(self):
+        b, _, enemies = imago_battle()
+        self.assertEqual(enemies["boss"].speed_range, (1, 3))
 
 
-class TestPhantomTransfer(unittest.TestCase):
-    def test_damage_transfers_to_boss(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        sk = make_skill("t_tr1", coins=2, power=0, damage=10)
-        before = boss.hp
-        attack(b, ally, ph["phantom_present"], sk)
-        self.assertEqual(ph["phantom_present"].hp, 1000 - 20)
-        self.assertEqual(boss.hp, before - 20)
+class TestTimeStates(unittest.TestCase):
+    def test_initial_stacks(self):
+        b, _, enemies = imago_battle()
+        boss = enemies["boss"]
+        for key in (IN_THE_PAST, IN_THE_PRESENT, IN_THE_FUTURE):
+            self.assertEqual(boss.status_count(key), 10)
 
-    def test_transfer_ratio(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads", phantom_damage_transfer=0.5)
-        sk = make_skill("t_tr2", coins=2, power=0, damage=10)
-        before = boss.hp
-        attack(b, ally, ph["phantom_present"], sk)
-        self.assertEqual(boss.hp, before - 10)
+    def test_active_state_is_highest_stack(self):
+        b, _, enemies = imago_battle()
+        boss = enemies["boss"]
+        boss.state["active_time_state"] = IN_THE_PAST
+        boss.set_status(IN_THE_PRESENT, 0, 15)
+        b.activate_time_state()
+        self.assertEqual(boss.state["active_time_state"], IN_THE_PRESENT)
+        self.assertGreater(b.counters.get("time_state_changes", 0), 0)
 
+    def test_tie_keeps_current_state(self):
+        """并列最高时保持当前激活状态（wiki: the currently active state does not change）。"""
+        b, _, enemies = imago_battle()
+        boss = enemies["boss"]
+        boss.state["active_time_state"] = IN_THE_FUTURE
+        for key in (IN_THE_PAST, IN_THE_PRESENT, IN_THE_FUTURE):
+            boss.set_status(key, 0, 10)
+        b.activate_time_state()
+        self.assertEqual(boss.state["active_time_state"], IN_THE_FUTURE)
 
-class TestPhantomRestore(unittest.TestCase):
-    def test_untargeted_phantoms_restore(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        b.state.flags["targeted_phantoms"] = ["phantom_past"]
-        b.end_turn()
-        self.assertEqual(boss.status_count(PAST), 2)      # 被攻击，不回补
-        self.assertEqual(boss.status_count(PRESENT), 4)   # +2
-        self.assertEqual(boss.status_count(FUTURE), 4)
-
-    def test_broken_phantom_does_not_restore(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        p = ph["phantom_present"]
-        b.apply_damage(ally, p, 5000, None)
-        self.assertFalse(p.alive)
-        b.end_turn()
-        self.assertEqual(boss.status_count(PRESENT), 2)
-
-    def test_phantom_revives_after_configured_turns(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads", phantom_broken_turns=1)
-        p = ph["phantom_present"]
-        b.apply_damage(ally, p, 5000, None)
-        self.assertFalse(p.alive)
-        b.begin_turn()   # turn 2
-        self.assertTrue(p.alive)
-        self.assertEqual(p.hp, p.max_hp)
+    def test_skill_rotation_depends_on_state_and_hp(self):
+        b, _, enemies = imago_battle()
+        boss = enemies["boss"]
+        boss.state["active_time_state"] = IN_THE_PAST
+        boss.state["cycle_turn"] = 0
+        first = b._rotation_skill(boss, boss.slots[0])
+        self.assertEqual(first, "im_temper_and_cast")
+        boss.state["active_time_state"] = IN_THE_FUTURE
+        self.assertEqual(b._rotation_skill(boss, boss.slots[0]), "im_corrosive_disintegration")
+        boss.state["active_time_state"] = IN_THE_PRESENT
+        self.assertEqual(b._rotation_skill(boss, boss.slots[0]), "im_anitya")
 
 
-class TestFormAndThresholds(unittest.TestCase):
-    def test_form_is_highest_stack(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        boss.set_status(PAST, 0, 2)
-        boss.set_status(PRESENT, 0, 5)
-        boss.set_status(FUTURE, 0, 1)
-        b.change_form()
-        self.assertEqual(boss.state["form"], "present")
+class TestIllusoryButterflies(unittest.TestCase):
+    def test_section5_wave_has_boss_and_three_illusions(self):
+        b, _, enemies = imago_battle()
+        self.assertEqual(len(b.state.phantoms()), 3)
+        time_types = {p.time_type for p in b.state.phantoms()}
+        self.assertEqual(time_types, {IN_THE_PAST, IN_THE_PRESENT, IN_THE_FUTURE})
 
-    def test_form_switch_grants_timegap(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads", form_switch_timegap=2)
-        boss.set_status(FUTURE, 0, 9)
-        b.change_form()
-        self.assertEqual(boss.state["form"], "future")
-        self.assertEqual(boss.status_count("timegap"), 2)
+    def test_illusions_start_with_shield(self):
+        b, _, enemies = imago_battle()
+        for p in b.state.phantoms():
+            self.assertEqual(p.shield, 333)
 
-    def test_no_timegap_when_form_unchanged(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads", form_switch_timegap=2)
-        b.change_form()   # 三栈相同 -> 保持 neutral 之外的首个最大者
-        first = boss.state["form"]
-        gap = boss.status_count("timegap")
-        b.change_form()
-        self.assertEqual(boss.state["form"], first)
-        self.assertEqual(boss.status_count("timegap"), gap)
+    def test_hitting_illusion_removes_matching_stack(self):
+        """Moment of Entangled Lives：幻影被作为主要目标攻击时，本体失去对应栈。"""
+        b, allies, enemies = imago_battle(coin_mode="always_heads")
+        boss = enemies["boss"]
+        past = enemies["phantom_past"]
+        dummy = list(allies.values())[0]
+        before = boss.status_count(IN_THE_PAST)
+        from helpers import make_skill
 
-    def test_hp_threshold_refills_stacks(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads", hp_threshold_stack_bonus=2)
-        boss.state["stack_thresholds"] = [3000]
-        boss.state["stack_threshold_index"] = 0
-        boss.set_status(PAST, 0, 1)
-        boss.set_status(PRESENT, 0, 1)
-        boss.set_status(FUTURE, 0, 1)
-        b.apply_damage(ally, boss, 4000, None)
-        self.assertEqual([boss.status_count(k) for k in (PAST, PRESENT, FUTURE)], [3, 3, 3])
-        self.assertEqual(boss.state["stack_threshold_index"], 1)
+        sk = make_skill("t_il1", coins=3, power=0, damage=0, base_power=5)
+        b.attack_with(dummy, sk, past)
+        self.assertEqual(boss.status_count(IN_THE_PAST), before - 3)
+        self.assertEqual(boss.status_count(IN_THE_PRESENT), 10)
 
-    def test_boss_stagger_thresholds(self):
-        b, ally, boss, ph = boss_field(coin_mode="always_heads")
-        # stagger 阈值按 HP 百分比缩放（0.9 / 0.7 / 0.47 / 0.23）
-        self.assertEqual(boss.stagger_thresholds[0], int(6404 * 0.9))
-        b.apply_damage(ally, boss, 6404 - int(6404 * 0.9), None)
-        self.assertTrue(boss.staggered)
-        self.assertEqual(boss.stagger_index, 1)
+    def test_only_matching_illusion_affects_its_stack(self):
+        b, allies, enemies = imago_battle(coin_mode="always_heads")
+        boss = enemies["boss"]
+        future = enemies["phantom_future"]
+        dummy = list(allies.values())[0]
+        from helpers import make_skill
+
+        sk = make_skill("t_il2", coins=2, power=0, damage=0, base_power=5)
+        b.attack_with(dummy, sk, future)
+        self.assertEqual(boss.status_count(IN_THE_FUTURE), 8)
+        self.assertEqual(boss.status_count(IN_THE_PAST), 10)
+
+    def test_shield_absorbs_illusion_damage(self):
+        b, allies, enemies = imago_battle(coin_mode="always_heads")
+        past = enemies["phantom_past"]
+        dummy = list(allies.values())[0]
+        from helpers import make_skill
+
+        sk = make_skill("t_il3", coins=1, power=0, damage=0, base_power=50)
+        dummy.offense_level = 60          # 与幻影同级，排除等级修正
+        b.attack_with(dummy, sk, past)
+        self.assertEqual(past.shield, 333 - 50)
+        self.assertEqual(past.hp, 1)
+        self.assertFalse(past.alive is False)
+
+
+class TestBossEndToEndSinking(unittest.TestCase):
+    def test_sinking_deals_gloom_damage_to_boss(self):
+        """无 SP 的 Abnormality：沉沦改为直接 Gloom 伤害（本实验的核心收益）。"""
+        b, allies, enemies = imago_battle(coin_mode="always_heads")
+        boss = enemies["boss"]
+        boss.set_status("sinking", potency=20, count=10)
+        dummy = list(allies.values())[0]
+        from helpers import make_skill
+
+        sk = make_skill("t_e2e", coins=4, power=0, damage=0, base_power=5)
+        hp_before = boss.hp
+        b.attack_with(dummy, sk, boss)
+        # 4 枚硬币 → 4 次 × 20 = 80 点 Gloom 固定伤害（Gloom 抗性 1.0）
+        self.assertEqual(b.counters.get("sinking_gloom_damage"), 80)
+        # 另有 4 × 6 点硬币伤害（Wrath 5 威力 × 1.25 抗性，等级同为 60 → 无等级修正）
+        self.assertEqual(hp_before - boss.hp, 80 + 24)
 
 
 if __name__ == "__main__":

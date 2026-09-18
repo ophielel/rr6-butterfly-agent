@@ -7,7 +7,7 @@
 #   disabled_egos: ["solemn_lament_gregor"]                  # C 禁用目灯虫庄严哀悼
 #   disabled_egos: ["harmony_sinclair"]                       # D 禁用辛克莱和声
 # E. 重复硬币功能关闭
-repeat_coin_enabled: false
+coin_reuse_enabled: false
 # F. 沉沦命中触发关闭
 sinking_enabled: false
 # G. 「蝶」特殊沉沦关闭，只保留普通伤害

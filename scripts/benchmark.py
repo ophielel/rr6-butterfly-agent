@@ -52,7 +52,7 @@ def main() -> None:
         "A1 禁用蝶箱庄严哀悼": cfg(disabled_egos=["solemn_lament_yisang"]),
         "A2 禁用目灯虫庄严哀悼": cfg(disabled_egos=["solemn_lament_gregor"]),
         "A3 禁用辛克莱和声": cfg(disabled_egos=["harmony_sinclair"]),
-        "E 关闭重复硬币": cfg(repeat_coin_enabled=False),
+        "E 关闭重复硬币": cfg(coin_reuse_enabled=False),
         "F 关闭沉沦触发": cfg(sinking_enabled=False),
         "G 关闭蝶特殊沉沦": cfg(butterfly_special_sinking=False),
     }

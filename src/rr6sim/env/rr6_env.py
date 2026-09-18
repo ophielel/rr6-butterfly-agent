@@ -100,9 +100,11 @@ class RR6ButterflyEnv:
             return "守备"
         if d["kind"] == "ego":
             ego = self.content.ego(d["id"])
-            cost = ego.corrosion_sp_cost if d.get("corrosion") else ego.sp_cost
-            suffix = "（侵蚀）" if d.get("corrosion") else ""
-            return f"E.G.O {ego.name}{suffix} (SP{cost})"
+            if d.get("corrosion"):
+                # Overclock：1.5× 觉醒代价，使用侵蚀技能（稳定目标）
+                cost = int(-(-ego.sp_cost * 3 // 2))
+                return f"E.G.O {ego.name}·超频 (SP{cost})"
+            return f"E.G.O {ego.name} (SP{ego.sp_cost})"
         sk = self.content.skill(d["id"])
         return f"{sk.name} [{sk.sin.value}/{sk.damage_type.value}] {sk.coin_count}硬币"
 

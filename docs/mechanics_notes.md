@@ -1,228 +1,204 @@
-# 机制笔记（实现口径 / 公式 / 假设）
+# 机制笔记（实现口径 / 公式 / 假设 / 出处）
 
-> 这份文档回答一个问题：**模拟器里的每一条规则是从哪来的、置信度多高、
-> 如果和游戏不一致应该改哪里。**
+> 本文档回答：**模拟器里的每条规则来自哪里、置信度多高、和游戏不一致时该改哪里。**
 >
-> 数据侧来源见 `docs/sources.md`；待游戏内校验清单见 `docs/verification_checklist.md`。
+> 证据来源：`limbuscompany.wiki.gg`（本机直连被 Cloudflare 拦截，用 `tools/wiki_fetch.py`
+> 经 `r.jina.ai` 代理抓取 MediaWiki API）。原始抓取结果缓存在 `_sources/`（gitignore）。
+>
+> 配套文档：`docs/audit_report.md`（本轮审计发现的问题与修复状态）、
+> `docs/verification_checklist.md`（逐条待校验清单）、`docs/sources.md`（来源汇总）。
 
-## 0. 总体原则
+## 0. 原则
 
-计划书 §7 / §9 / §26：**规则正确性 > replay/测试 > 搜索基线 > 训练 > 性能**。
+* **真实机制正确性 > 状态转移正确 > clone/hash/replay > 测试 > 搜索 > RL > 性能。**
+* 不允许为了 benchmark 好看而调数值；不允许为了让「沉沦 + 重投」成为最优而改规则。
+* 查不到的机制：不推测，写 `not_implemented` / `confidence: low|synthetic` 并记录 TODO。
+* 每个 `not_implemented` 触发都会计入 `state.counters["not_implemented"]`，并在 replay 里留日志——
+  **未实现的机制不会静默失真**。
 
-* 所有伤害都必须走「逐枚硬币」路径，不存在「先算总伤害再扣 HP」的捷径。
-* 每次结算只通过事件时点触发：技能效果、状态钩子、被动都绑在同一个时点表上。
-* 每一条不确定的数值/公式都是 `SimConfig` 字段或带 `confidence` 的数据字段，
-  不允许散落在代码里。
+## 1. 数据置信度标注
 
-## 1. 事件时点表
+`data/*.json` 每个条目都有 `source` 与 `confidence`：
 
-`rr6sim.core.enums.Timing`（引擎在 `Battle` 的固定位置触发）：
+| 值 | 含义 |
+|---|---|
+| `verified` | 已对照 wiki.gg 页面原文逐字录入 |
+| `high` | 结构/数值来自 wiki，个别数值待复核 |
+| `medium` | 机制方向正确，具体数值待复核 |
+| `low` | 只有大致方向，数值明显需要校验 |
+| `synthetic` | **实验为了课程/平衡人造的**，游戏里不存在（必须单独说明） |
+
+当前状态：
+
+* `data/egos.json` = **verified**（6 个 E.G.O 全部按 wiki 原文重录）
+* `data/boss_rr6_butterfly.json` = **high**（Imago 本体 12 技能 + 3 幻影 + passive 结构）
+* `data/statuses.json` = 混合（Sinking / Butterfly / Fragile 等 verified；Burn/Bleed 等 medium）
+* `data/identities.json` = **synthetic**（7 个人格的技能数值是占位数据，尚未逐页录入）
+
+## 2. 事件时点表
+
+`rr6sim.core.enums.Timing`：
 
 ```
 battle_start
-turn_start            # 状态钩子、被动、Boss SP 回复
-speed_roll            # 每个行动槽独立 roll 速度
-skill_choices_ready   # 每个槽抽 2 个技能候选
-（玩家/算法自回归构造本回合计划）
-combat_start          # 计算行动顺序
+turn_start                     # 状态钩子、被动、Imago 激活时间状态
+speed_roll / skill_choices_ready
+（自回归构造本回合计划）
+combat_start
   per 行动槽（速度降序）:
-    on_use            # [使用时]（技能级 + E.G.O 被动 + 出血类状态）
-    before_clash      # [拼点前]
+    on_use                     # [使用时]
+    before_clash
     on_clash_win / on_clash_lose
-    before_attack     # [攻击前]
+    before_attack              # [攻击前]
       per 硬币:
+        coin_start
         before_coin
-        on_coin_heads / on_coin_tails
-        on_hit        # [命中时]（技能硬币效果 → 目标状态钩子 → 攻击者被动）
-        after_coin
-    after_attack      # [攻击后]
+        on_coin_heads / on_coin_tails        # 硬币正/反面
+        heads_hit / tails_hit                # [Heads Hit] / [Tails Hit]
+        on_hit                               # [命中时]
+        hit_after_clash_win / hit_after_clash_lose
+        on_hit_without_cracking              # Unbreakable Coin 专用
+        after_coin / current_coin_attack_end
+    after_attack / attack_end
     on_stagger / on_death
-turn_end              # 状态衰减、幻影回补、形态判定
+turn_end
+combat_end                     # 跨回合的「Combat End」（如和声的 -8 SP）
 ```
 
-单枚硬币的结算顺序（`Battle.resolve_coin`，**这是最容易被写错的地方**）：
+单枚硬币的结算顺序（`Battle.resolve_coin`）：
 
-1. `before_coin`（硬币效果 + 技能效果）
-2. `on_coin_heads` / `on_coin_tails`
-3. `on_hit`：技能/硬币的 [命中时] 效果（先施加状态）
-4. 伤害结算（`damage.deal`）→ 幻影处理 → 混乱 → 死亡 → 本体 HP 阈值
-5. 目标身上的「命中时」状态钩子（沉沦 / 蝶 / 破裂 / 亡蝶…）
-6. 攻击者身上的「命中时」状态钩子 + 攻击者被动
-7. `after_coin`
+1. `coin_start` → `before_coin`
+2. `on_coin_heads|tails` → `heads_hit|tails_hit`
+3. `on_hit`（硬币与技能的 [命中时] 效果，**先施加状态**）
+4. `hit_after_clash_win|lose`、`on_hit_without_cracking`（cracked 硬币）
+5. 伤害结算（`damage.deal`）→ 护盾吸收 → 幻影处理 → 混乱 → 死亡 → HP 阈值
+6. 目标身上「命中时」状态钩子（`sinking_trigger` / `butterfly_trigger`）
+7. 攻击者身上「命中时」状态钩子 + 攻击者被动
+8. `after_coin`
 
-> 「先施加状态再触发」是刻意的：沉沦队在同一枚硬币上「施加沉沦 → 立即触发」的
-> 手感来自这里。若游戏实际是「触发后再施加」，把第 3 步与第 5 步交换即可。
+> 「先施加状态再触发」是刻意选择（沉沦队在同一枚硬币上「施加→触发」的手感）。
+> 若游戏实际相反，交换第 3 与第 6 步即可（在 `resolve_coin` 里调整）。
 
-## 2. 硬币 / 拼点
-
-* 硬币威力：`value = base_power + (coin.power if 有利面 else 0)`
-  * 正硬币：正面为有利面；负硬币：反面为有利面。
-* 有利面概率：`P(正面) = clamp(0.5 + SP × san_per_point, 0.05, 0.95)`，
-  正负硬币共用（负硬币在低 SP 时更容易吃到硬币威力 → 泪锋之剑 / 绝望类人格的手感）。
-* 拼点模型（`SimConfig.clash_model`）：
-
-  | 模型 | 规则 | 结果 |
-  |---|---|---|
-  | `advance`（默认） | 每轮双方各翻**下一枚**硬币，败者硬币被破坏，平手双方破坏 | 硬币数多的一方占优 |
-  | `reflex` | 胜者保留当前硬币继续拼，只有败者硬币被破坏 | 高威力少硬币（单硬币 E.G.O）占优 |
-
-  计划书没有规定拼点细节，两种社区理解都实现了，默认 `advance`；
-  切换后 golden replay 会变化（这是预期行为，请重新生成 golden）。
-* `clash_coin_carryover=true`：拼点胜利后，已翻出硬币的正反面结果沿用到伤害阶段。
-* 拼点胜负的 SP 变化：`clash_win_sp_gain=+1`，`clash_lose_sp_loss=0`（待校验）。
-* 行动顺序：速度降序 → 我方优先 → 单位/槽位顺序。
-* 改目标：只有速度快于被保护槽位时才能改（`enforce_redirect_speed`）。
-
-## 3. 伤害
+## 3. 伤害公式（**已改为真实公式**）
 
 ```
-伤害 = 硬币伤害
-     × (1 + 0.03 × (攻击等级 - 防御等级))          # level_diff_damage_per_level
-     × 物理抗性 × 罪孽抗性
-     × 目标受到伤害倍率（脆弱/时隙/眩惑/影之龟裂/保护…）
-     × 混乱倍率（1.5，处于混乱时）
-     × 守备倍率（0.5）
-     × 本次临时倍率（技能效果 / 造成伤害倍率（绝望…））
+Final Damage = Coin Roll × (1 + Static) × (1 + Dynamic)
 ```
 
-* `coin_power_adds_damage=true` 时，硬币伤害 = `coin.damage + (有利面时的 coin.power)`。
-  这样精神力/硬币结果会同时影响拼点与伤害（更接近游戏手感）。
-* 所有倍率都可在 `SimConfig` 调整；`DamageBreakdown` 会记录每一项，便于 replay 审计。
+* **Coin Roll = 该硬币的 Final Power**（`base_power + 有利面时 coin.power + 修正`）。
+  → 旧实现里独立的 `coin.damage` 字段是**模拟器近似量**，现在只作为 *attack adder* 使用
+  （`Coin.damage`，默认 0；`data/*.json` 里若出现请视为 synthetic）。
+* `Static = Sin Res Mod + Damage Res Mod + Off/Def Level Advantage + Crit
+  + Clash Count × 0.03 + Observation Level`
+* 抗性分段：
 
-## 4. 状态
+```
+x < 0      → -0.5      # Immune 实际吃一半伤害
+0 ≤ x < 1  → (x-1)/2   # Ineff. x0.5 实际 -25%
+x ≥ 1      → x-1       # Weak x1.5 → +50%，Fatal x2 → +100%
+```
 
-状态 = 强度(potency) + 层数(count)。实现的关键状态：
+* 攻防等级：`M = (Off - Def) / (|Off - Def| + 25)`（`offense_defense_modifier`）
+* 拼点：**高等级方每 3 级差 +1 拼点威力（向下取整）**（`clash_level_bonus_per_3 = 1.0`）
+* 混乱：该回合**物理抗性被替换**为 `Stagger Level × 0.5 + 0.5`
+  （Stagger/+/++ = +1 / +1.5 / +2），与已有弱点取较高者，**不叠加**
+* 取整：向下取整、最低 1、且不低于 `0.05 × Coin Roll`
+* 固定伤害（状态类如沉沦）：`flat=True` → 忽略物理抗性与等级，只乘罪孽抗性
 
-| key | 中文 | 触发 | 说明 |
+## 4. Coin Reuse（重骰）—— 实验核心
+
+**只有两个参与实验的 E.G.O 有 Coin Reuse**（`Category:E.G.O with Coin Reuse`）：
+
+| E.G.O | 真实文本 | 实现 |
+|---|---|---|
+| 庄严哀悼（格里高尔） | 第 3 枚 `[On Hit] At 0+ SP, Reuse this Coin (5 times max per Skill)`，每次命中 -2~6 SP | `reuse_coin(coin="current", max_reuse=5, if=SP>=0)`，写在**第 3 枚硬币**的 effects 里 |
+| 和声（辛克莱） | 第 3 枚 `[Heads Hit] At 10%+ HP, take 4~8 HP damage → Then, Reuse this Coin (4 times per Skill)` | `self_harm` + `reuse_coin(max_reuse=4, if=HP>=10%)`，触发条件是 `heads_hit` |
+
+实现细节（`effects._h_reuse_coin` + `engine.strike`）：
+
+* 指定硬币（`coin: "current" | 索引 | "last" | "first"`），**不是把整个技能重打一遍**；
+* `max_reuse` 是**每技能**上限，用 `frame["reuse_counts"]` 计数；
+* **每次 reuse 前重新判定 `if` 条件**（所以 Gregor 在 SP 变负后会停止 reuse）；
+* reuse 的硬币会重新走完整结算，**重新触发 [On Hit]**；
+* reuse 产生的硬币可以再次 reuse（真实机制靠 `max_reuse` 封顶），
+  用 `allow_recursive` 只是给 synthetic 效果用的开关；
+* 带 `"reuse_only": true` 的效果对应游戏文本的 `Reuse - ■■■` 前缀（只在被 reuse 的硬币上触发）。
+
+`synthetic` 的 `repeat_coin`（全硬币重复投掷）**必须显式写 `"synthetic": true`**，
+否则 handler 直接抛错——游戏里不存在这种写法，禁止再被当作真实规则使用。
+
+## 5. E.G.O 的 SP / 侵蚀 / Overclock（**已改为真实规则**）
+
+* E.G.O **不因 SP 不足而被禁用**（SP 可以为负，扣到 −45 也允许）。
+* `slot.corrosion = True` 表示玩家主动 **Overclock**：花 `ceil(1.5 × 觉醒消耗)` 的 SP，
+  使用**侵蚀技能**但去掉 Indiscriminate（稳定目标）。
+* 否则（`corrosion_mode`）：
+  * `rng`（真实）：若「当前 SP − 觉醒消耗 ≤ −45」→ **必定侵蚀**（按侵蚀技能的 SP 消耗扣）；
+    若 SP < 0 → 按概率侵蚀（`corrosion_chance_at_min_sp`，曲线待校验，标 low）；
+  * `auto_only`：只保留必定侵蚀（deterministic curriculum）；
+  * `never`：永远觉醒（对照实验用）。
+* 同一回合同一 E.G.O 不能使用两次（`allow_same_ego_twice_per_turn=False`）。
+* 使用后本回合罪孽抗性被该 E.G.O 的抗性表覆盖（`resist_override`，7 罪孽逐项，来自 wiki 的 res 表）。
+
+## 6. 技能牌堆（Skill Deck）
+
+wiki.gg/Battles：**「3 copies of Skill 1, and 1 copy of Skill 3」**，抽完才重新洗牌。
+
+* 数据层显式写份数：`"deck": {"yi_s1": 3, "yi_s2": 2, "yi_s3": 1}`；
+* 每个行动槽每回合抽 2 个候选；队列空时才 refill；
+* `skill_draw_mode=fixed`：按声明顺序，完全可复现；`rng`：洗牌，同 seed 可复现。
+
+## 7. 状态（按 wiki 原文实现）
+
+| key | 中文 | 实现要点 | 置信度 |
 |---|---|---|---|
-| `sinking` | 沉沦 | `on_hit` | 失去等同强度的精神力，层数 -1；**强度会累积**，是重投 E.G.O 的触发条件 |
-| `butterfly` | 蝶 | `on_hit` | 同时造成精神力与 HP 伤害（消融 G 可关闭特殊部分） |
-| `dead_butterfly` | 亡蝶 | `on_hit` | 追加 HP 伤害，层数 -1 |
-| `manor_echo` | 山庄的回响 | `turn_end` | 精神力伤害 = 层数 × 2 |
-| `rupture` | 破裂 | `on_hit` | HP 伤害 = 强度，层数 -1 |
-| `bleed` | 出血 | `on_use` | 使用攻击技能时 HP 伤害 = 强度，层数 -1 |
-| `burn` | 燃烧 | `turn_end` | HP 伤害 = 强度，层数 -1 |
-| `timegap` | 时隙 | — | 受到伤害 +5%/层，回合结束 -1 层（罗生蝶形态切换的易伤） |
-| `fragile` | 脆弱 | — | 受到伤害 +5%/层 |
-| `dazzle` / `shadow_crack` | 眩惑 / 影之龟裂 | — | 受到伤害 +5%/层 |
-| `strong` / `offense_level_up/down` | 强壮 / 攻击等级升降 | — | 攻击等级 ±1/层 |
-| `clash_power_up` | 拼点威力提升 | — | 拼点威力 +1/层 |
-| `protect` / `blessing` | 保护 / 加护 | — | 受到伤害 -10%/层 |
-| `despair` | 绝望 | — | 造成伤害 +10%/层 |
-| `past` / `present` / `future` | 过去 / 现在 / 未来 | — | 罗生蝶三套状态栈（只有层数） |
+| `sinking` | 沉沦 | 命中时失去等同强度的 SP；**无 SP 单位改为等强度 Gloom 伤害**（忽略物理抗性）；层数 −1 | verified |
+| `butterfly` | 蝶 | Potency = The Living / Count = The Departed；命中时**攻击者回复 (Living/4) SP**；自身 SP<0 时每个 Departed 造成 `(Sinking Potency/5)` Gloom 伤害（上限 30，无 SP 单位减半）；回合结束 Departed→0、获得等同 Living 的 Sinking、Living→Departed | verified |
+| `fragile` | 脆弱 | 每层 +10% 动态修正 | high |
+| `rupture` / `burn` / `bleed` | 破裂/燃烧/出血 | 固定伤害，层数 −1（触发口径 medium） | medium |
+| `manor_echo` | 山庄的回响 | 回合结束 −1；50% 追加 Sinking Count、Panic 类型、无 SP 单位 −10% 正面率 → **未实现** | high（文档）/ 部分未实现 |
+| `dazzle` | 眩惑 | 机制已记录，伤害加成接入 **未实现** | high（文档）/ 部分未实现 |
+| `sheut_fracture` / `blue_sand` / `blessing` | 影之龟裂 / 青沙 / 加护 | 机制已记录，触发 **未实现** | high（文档）/ 部分未实现 |
+| `in_the_past` / `in_the_present` / `in_the_future` | 过去/现在/未来 | Imago 三套状态栈 | verified |
 
-触发器统一由 `data/statuses.json` 的 `hooks` 描述，`core/effects.py` 执行。
+`timegap`、`dead_butterfly`、`despair` 等**上一版臆造的状态已删除**。
 
-## 5. 罗生蝶（RR6 第五区段）
+## 8. 罗生蝶（RR6 Line 6 / Section 5 / Station 8「Advent」）
 
-实现口径（全部来自 `data/boss_rr6_butterfly.json`，数值待校验）：
+真实结构（`data/boss_rr6_butterfly.json`）：
 
-* 本体 + 三幻影（过去 / 现在 / 未来），各自有行动槽。
-* 攻击幻影：**每枚硬币**削减对应状态栈 1 层（`phantom_stack_decay_per_coin`）。
-* 幻影受到的伤害按 `phantom_damage_transfer`（默认 1.0）转移给本体。
-* 幻影 HP 归零 → 破碎（不参与回补），`phantom_broken_turns` 回合后复原。
-* 回合结束时，**整回合没有被作为主要目标**攻击的幻影 → 对应状态栈 +2
-  （`phantom_restore_amount`）。
-* 形态 = 三套栈中最高者（并列时保持当前形态，全 0 则 `neutral`）；
-  形态变化时本体获得「时隙」层数（`form_switch_timegap`）。
-* 本体 HP 跨过 `stack_thresholds`（按 HP 百分比记录）时三套栈 +2
-  （`hp_threshold_stack_bonus`）。
-* 本体有 4 个混乱阈值（按 HP 百分比记录）。
-* 本体每回合开局回复 8 SP（`sp_recovery` 被动），避免沉沦一回合把它压死。
-* RR6 前三段的「禁用被动」是配置项：被动效果带 `rr6_passive` 名字，
-  出现在 `config.disabled_rr6_passives` 里就会被剔除。
-* 第五区段事件增益通过 `config.encounter_buffs` 注入
-  （`boss_hp_mult` / `initial_stacks` / `boss_extra_statuses` / `ally_extra_statuses` /
-  `initial_form` / `phantom_acts`）。
+* 本体 `Refracted Butterfly of Entangled Lives::Imago`：
+  * `hp = 9090 + 275.44 × 60 = 25616`（与计划书记录一致），level 60，speed 1~3，defmod +0
+  * 4 个混乱阈值：85% / 65% / 40% / 10%
+  * 抗性：wrath/lust/pride 1.25，sloth/gluttony 0.75，gloom/envy 1.0，物理全 1.0
+  * **`has_sanity = false`（Abnormality）** → 沉沦直接转 Gloom 伤害，这是沉沦队的真实收益
+  * 12 个技能（spower / cpower / coin / atkmod / atkweight / 类型 / 罪孽 全部按 wiki 录入）
+  * `Moment of Entangled Lives`：回合开始激活三套时间栈中最高者；**幻影被作为主要目标攻击时本体失去对应栈**
+  * `三世因果`：开战三栈各 10；HP 首次低于 66%/33% 时三栈各 +10
+  * 技能循环：按激活状态 + HP 阶段（normal / below_66 / below_33）的三回合循环
+* 三只幻影蝶（`Illusory Butterfly::The Past / The Present / The Future`）：`hp=1`、**333 Shield**、
+  `Take +100% damage from E.G.O Skills`、`Eclosion`（Unclashable / 0 伤害 / Attack End 结束遭遇）
+* Section 5 的开局状态 = **通关 Section 1（The Pupa）时的 HP% 与 SP** → 本实验由 config 注入
 
-## 6. 重投 / 追加硬币
+未实现（已在数据里标 `not_implemented`，并计入 counters）：Poise/暴击、Unbreakable 的 Crack
+细节、Burn/Bleed 完整口径、Scale Dust、Temporal Disjunction、攻击权重/子目标/部位破坏、
+随机硬币目标。
 
-* 「重复投掷」有两种粒度：
-  * 硬币级：效果绑在硬币的 `on_hit` 上 → 该硬币再投一次（`ctx.repeat_extra`）。
-  * 技能级：`{"kind": "repeat_coin", "times": N, "all_coins": true}` →
-    技能所有硬币各多投 N 次（计划书要求的「多硬币 + 重投 E.G.O」）。
-* 重复投掷产生的硬币**会**重新触发 [命中时] 效果与状态钩子（计划书 §18.1）。
-* 但重复投掷**不会**再触发新的重复投掷（`is_repeat_throw` 保护），
-  另加 `max_repeat_per_coin` 安全阀，避免无限递归（这个坑已经踩过一次）。
-* 「追加硬币」`add_coin` 在技能末尾追加指定硬币。
+## 9. 实验配置：真实 vs synthetic
 
-## 7. 缩放与平衡（重要）
+| 字段 | 性质 | 说明 |
+|---|---|---|
+| `boss_hp_scale` | **synthetic curriculum** | wiki 真实 HP = 25616（= 1.0）。默认 0.5 是为了把回合尺度压到搜索/训练可用的范围 |
+| `encounter_buffs` | synthetic | 第五区段事件增益（如第 4 回合的 Sunset Wayfarer Choice Event） |
+| `disabled_rr6_passives` | 真实存在 | 前三段的禁用被动选择（配置项） |
+| `curriculum_boss_sp_recovery` | **synthetic** | 真实 Imago 没有「每回合 +8 SP」；已从数据中移除 |
+| `corrosion_chance_at_min_sp` | low | 侵蚀概率曲线的具体数值未校验（界面百分比是逐 E.G.O 的） |
+| `coin_reuse_enabled` / `sinking_vs_no_sp_deals_gloom_damage` | 消融开关 | 关闭时对应机制真的不会生效（有测试） |
 
-* 中文 Wiki 记录本体 HP = **25616**（`config.boss_hp` 保留该值）。
-* 7 人各 1 槽、每次行动 3~4 枚硬币的尺度下，直接使用 25616 会让
-  「Greedy 需要 40+ 回合」，对搜索/训练不友好。
-  因此默认 `boss_hp_scale: 0.5`（≈12808），混乱/状态栈阈值按 HP 百分比同步缩放。
-  **`boss_hp_scale: 1.0` 即完全按 wiki 数值。** 该字段会进 `config_hash`。
-* 当前平衡（`python3 scripts/benchmark.py --seeds 5`，`max_turns=20`）：
-  Greedy 即时伤害基线 0/5 胜（放宽到 30 回合时需 20~23 回合）；
-  手写「沉沦 → 重投 E.G.O」轴 4/5 胜、中位 **7 回合**；
-  关闭重复硬币 0/5、禁用蝶箱庄严哀悼 0/5、禁用目灯虫庄严哀悼中位 9.5 回合。
-* 已知待调：**消融 F（关闭沉沦触发）的差距还不够大**——目前沉沦的收益主要体现在
-  「把本体 SP 打到 -45 → 它拼点全出反面 → 攻击被拼点胜利抵消」，
-  需要把 Boss 的威胁调高才能让 F 明显掉档；同理消融 A3（禁用和声）被手写轴的
-  兜底技能掩盖。见 `docs/verification_checklist.md` §G。
+**任何 benchmark 结果都必须同时报告用的是哪种配置**（真实数值 or scaled curriculum）。
 
-## 8. 数据格式速查
+## 10. 与 Rust 方案的关系
 
-技能（`data/identities.json` / `data/egos.json` / `data/boss_rr6_butterfly.json`）：
-
-```jsonc
-{
-  "sid": "yi_s3", "name": "安魂", "sin": "gloom", "damage_type": "slash",
-  "base_power": 6, "offense_level_mod": 0,
-  "coin_count": 4,                       // 或直接写 "coins": [...]
-  "coin": {
-    "kind": "positive",                  // positive / negative
-    "power": 4, "damage": 10,
-    "effects": [ {"when": "on_hit", "kind": "add_status", "key": "sinking",
-                  "potency": 2, "count": 2, "target": "other"} ]
-  },
-  "effects": [                            // 技能级时点
-    {"when": "on_use", "kind": "consume_resource", "key": "living_butterfly",
-     "amount": 5, "clamp": false},
-    {"when": "on_use", "kind": "note_scale", "from": "consumed",
-     "key": "living_butterfly", "damage": 1}
-  ]
-}
-```
-
-效果字段：`kind`（处理器名）+ `when`（时点）+ `if`（条件）+ 若干参数。
-可用 `kind`：
-
-```
-add_status  set_status  remove_status  add_stack  transfer_damage
-lose_sp  heal_sp  heal_hp  deal_damage
-add_resource  set_resource  consume_resource  note_scale
-modify_power  modify_damage  modify_damage_mult
-repeat_coin  add_coin  branch  sum_status
-set_state  log_event  change_form  force_stagger  ego_resist_override
-```
-
-条件字段（`core/conditions.py`）：
-
-```
-status{key,who,potency_gte,count_gte,potency_lte,count_lte}
-resource{key,who,gte,lte,eq}      hp_pct{who,lte,gte}      sp{who,lte,gte}
-coin_heads  coin_index_gte/lte    is_phantom  target_kind  time_type
-form_is  turn{gte,lte}  staggered  chance  skill_tag  config{...}
-all[]  any[]  not{}  branch_if{}
-```
-
-`who` 取值：`self`（技能使用者 / 状态持有者）与 `other`（目标 / 对手）。
-目标 token：`self` `other` `all_allies` `all_enemies` `target_allies` `boss`
-`phantom:past|present|future` `random_ally` `random_enemy` `lowest_hp_ally`。
-
-## 9. 与 Rust 方案的对应关系
-
-计划书 §5.1 建议用 Rust 写底层（可 clone/rollback/批量并行）。本机没有 Cargo，
-因此用相同架构的 Python 实现：
-
-| 计划书（Rust） | 本实现（Python） |
-|---|---|
-| `sim-core` | `rr6sim.core` |
-| `rr6-data` | `rr6sim.content` + `data/*.json` |
-| `pybridge`（PyO3） | `rr6sim.env`（直接 import） |
-| 批量环境 | `simulate.step_many`（接口已固定，未并行化） |
-
-移植时只需要保证 `Battle` 的时点调用顺序与 `state.hash()` 的规范序列化一致，
-golden replay（`tests/golden/`）可以直接作为跨语言一致性测试。
+计划书 §5.1 建议 Rust 底层；本机无 Cargo，因此用同架构的 Python 实现：
+`core/`（规则）、`content/`（数据 + 专用 handler）、`env/`（自回归动作 + 观察）、
+`simulate.py`（clone/hash/批量）。移植时以 `tests/golden/` 作为跨语言一致性测试。

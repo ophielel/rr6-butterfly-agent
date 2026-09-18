@@ -13,6 +13,7 @@ TurnStart -> SpeedRoll -> SkillChoicesReady -> (玩家规划) -> CombatStart
 
 from __future__ import annotations
 
+import math
 from typing import Optional
 
 from .conditions import eval_condition
@@ -24,7 +25,8 @@ from .enums import (CoinKind, DamageType, Form, Outcome, Phase, Side, Sin,
 from .rng import SplitMix64, heads_probability
 from .skill import Ego, Skill
 from .state import BattleState
-from .status import BUTTERFLY, DEAD_BUTTERFLY, FUTURE, PAST, PRESENT, TIMEGAP
+from .status import (BUTTERFLY, DEAD_BUTTERFLY, FUTURE, IN_THE_FUTURE, IN_THE_PAST,
+                     IN_THE_PRESENT, PAST, PRESENT, TIMEGAP)
 from .unit import ActionSlot, Unit, status_spec
 
 
@@ -108,12 +110,15 @@ class Battle:
         for u in st.all_units():
             u.target_of_turn = False
             u.ego_used_this_turn = False
+            u.state["egos_used_this_turn"] = []
             u.guard = False
             if u.side is Side.ALLY:
                 u.resist_override = {}
             # 混乱恢复
             if u.staggered and st.turn > int(u.state.get("stagger_until_turn", 0)):
                 u.staggered = False
+                u.stagger_level = 0
+            u.state["clash_wins_this_turn"] = 0
             # 幻影复原
             if u.kind == "phantom" and not u.alive:
                 if st.turn >= int(u.state.get("revive_turn", 0)):
@@ -131,6 +136,7 @@ class Battle:
                 s.redirected = False
 
         self.run_all_hooks(Timing.TURN_START)
+        self.activate_time_state()
         self.roll_speeds()
         self.draw_skills()
         self.plan_enemy_actions()
@@ -221,8 +227,30 @@ class Battle:
         if mode == "greedy":
             return self._greedy_skill(u, pool)
         # script：按回合数循环固定牌序（Stage A 的确定性要求）；多槽位错开
+        rotation = self._rotation_skill(u, slot)
+        if rotation is not None:
+            return rotation
         script = u.state.get("skill_script") or pool
         return script[(self.state.turn - 1 + slot.index) % len(script)]
+
+    def _rotation_skill(self, u: Unit, slot: ActionSlot) -> Optional[str]:
+        """真实 Imago 的三回合技能循环：按当前激活的时间状态与 HP 阶段选技能。"""
+        rots = u.state.get("skill_rotations")
+        if not rots:
+            return None
+        state_key = u.state.get("active_time_state") or "in_the_past"
+        table = rots.get(state_key) or {}
+        pct = u.hp_pct()
+        if pct < 0.33:
+            seq = table.get("below_33") or table.get("below_66") or table.get("normal")
+        elif pct < 0.66:
+            seq = table.get("below_66") or table.get("normal")
+        else:
+            seq = table.get("normal")
+        if not seq:
+            return None
+        idx = int(u.state.get("cycle_turn", 0)) + slot.index
+        return seq[idx % len(seq)]
 
     def _greedy_skill(self, u: Unit, pool: list) -> str:
         best, best_score = pool[0], -1.0
@@ -289,24 +317,30 @@ class Battle:
         return list(ident.skills)
 
     def legal_actions(self, slot: ActionSlot) -> list:
-        """槽位可选的「行动」列表。"""
+        """槽位可选的「行动」列表。
+
+        E.G.O 的真实规则（docs/audit_report.md §4）：
+        * **不因 SP 不足而被禁用**（SP 可以为负，扣到 −45 也允许）；
+        * 觉醒 / 侵蚀由规则判定，不是在界面上勾选的开关；
+        * 「显式选择侵蚀」= Overclock（花 1.5× 代价，得到去掉 Indiscriminate 的侵蚀技能）；
+        * 同一回合同一 E.G.O 不能使用两次。
+        """
         u = self._owner_of(slot)
         out = []
         for sid in slot.skill_choices:
             out.append({"kind": "skill", "id": sid, "corrosion": False})
         out.append({"kind": "guard", "id": "guard", "corrosion": False})
+        used = list(u.state.get("egos_used_this_turn") or [])
         for eid in u.ego_ids:
             if eid in self.config.disabled_egos:
                 continue
             ego = self.content.ego(eid)
             if ego is None:
                 continue
-            # SP 不足则不可用（计划书 §9.13：SP 不能删）
-            if u.sp < ego.sp_cost:
+            if not self.config.allow_same_ego_twice_per_turn and eid in used:
                 continue
             out.append({"kind": "ego", "id": eid, "corrosion": False})
-            if self.config.corrosion_enabled and u.sp >= ego.corrosion_sp_cost:
-                out.append({"kind": "ego", "id": eid, "corrosion": True})
+            out.append({"kind": "ego", "id": eid, "corrosion": True})
         return out
 
     def _owner_of(self, slot: ActionSlot) -> Unit:
@@ -317,26 +351,36 @@ class Battle:
         raise KeyError("槽位不属于任何单位")
 
     def legal_targets(self, slot: ActionSlot) -> list:
-        """槽位可选目标：敌方单位的每个行动槽。"""
+        """槽位可选目标：敌方单位（部位）的每个行动槽。
+
+        关键：**「这个槽位会不会打出攻击」与「能不能被打」是两件事**。
+        敌人因为混乱 / boss_ai=none / phantom_acts=false 而不行动时，
+        它的槽位仍然是合法目标（只能单方面攻击）；
+        只有单位死亡、部位被破坏（``targetable=False``）才不可选。
+        """
         u = self._owner_of(slot)
         out = []
         for e in self.state.enemies:
-            if not e.alive or e is u:
+            if not e.alive or e is u or not getattr(e, "targetable", True):
                 continue
             for es in e.slots:
-                if es.acted or es.cancelled:
+                if not getattr(es, "targetable", True):
                     continue
-                clash = (es.choice_kind is SlotKind.SKILL
-                         and es.target_uid == u.uid
-                         and (not self.config.clash_same_slot
-                              or es.target_slot == slot.index))
-                redirect = es.target_uid not in ("", u.uid)
+                can_clash = (not es.acted and not es.cancelled
+                             and es.choice_kind is SlotKind.SKILL
+                             and bool(es.target_uid)
+                             and not e.staggered)
+                clash = (can_clash and es.target_uid == u.uid
+                         and (not self.config.clash_same_slot or es.target_slot == slot.index))
+                redirect = can_clash and es.target_uid not in ("", u.uid)
                 if redirect and self.config.enforce_redirect_speed:
                     victim = self._slot_owner(es.target_uid, es.target_slot)
                     if victim is not None and victim[1] is not None and victim[1].speed >= slot.speed:
                         continue
                 out.append({"uid": e.uid, "slot": es.index, "clash": bool(clash),
-                            "redirect": bool(redirect)})
+                            "redirect": bool(redirect),
+                            "one_sided": not (clash or redirect),
+                            "acting": bool(can_clash)})
         return out
 
     def _slot_owner(self, uid: str, slot_index: int):
@@ -420,12 +464,16 @@ class Battle:
             slot.acted = True
             self.log("guard", {"unit": unit.uid, "slot": slot.index})
             return
-        skill = self.build_skill(unit, slot)
+        if slot.choice_kind is SlotKind.EGO:
+            ego = self.content.ego(slot.choice_id)
+            use_corrosion, cost = self.plan_ego_use(unit, ego, slot)
+            skill = ego.variant(use_corrosion)
+            self.pay_ego_cost(unit, ego, slot, cost, use_corrosion)
+        else:
+            skill = self.build_skill(unit, slot)
         if skill is None:
             slot.acted = True
             return
-        if slot.choice_kind is SlotKind.EGO:
-            self.pay_ego_cost(unit, skill, slot)
         slot.acted = True
 
         target = self.unit(slot.target_uid)
@@ -461,22 +509,57 @@ class Battle:
             self.execute_attack(unit, slot, skill, target, mode)
 
     # ------------------------------------------------------------------
-    def pay_ego_cost(self, unit: Unit, skill: Skill, slot: ActionSlot) -> None:
-        ego = self.content.ego(slot.choice_id)
-        cost = ego.corrosion_sp_cost if slot.corrosion else ego.sp_cost
+    def plan_ego_use(self, unit: Unit, ego, slot: ActionSlot) -> tuple:
+        """决定这次 E.G.O 是觉醒还是侵蚀，以及实际 SP 代价。
+
+        * ``slot.corrosion=True`` 表示玩家主动 **Overclock**：代价 ×1.5，使用侵蚀技能，
+          但去掉 Indiscriminate（不会打到队友）。
+        * 否则：若「当前 SP − 代价 ≤ −45」→ **必定侵蚀**；
+          若 SP < 0 → 按概率侵蚀（config.corrosion_mode 可换成 deterministic）。
+        """
+        cfg = self.config
+        base = ego.sp_cost
+        if slot.corrosion:
+            # Overclock：花 1.5× 罪孽资源与 SP，得到「去掉 Indiscriminate 的侵蚀技能」
+            return True, int(math.ceil(base * cfg.overclock_multiplier))
+        if cfg.corrosion_mode == "never":
+            return False, base
+        if unit.sp - base <= -unit.max_sp:
+            # 强制侵蚀：代价按侵蚀技能自己的 SP 消耗（asanity / csanity）
+            return True, ego.corrosion_sp_cost
+        if cfg.corrosion_mode == "auto_only":
+            return False, base
+        if unit.sp < 0:
+            chance = min(1.0, abs(unit.sp) / float(unit.max_sp) * cfg.corrosion_chance_at_min_sp * 2.0)
+            if self.rng.chance(chance):
+                return True, ego.corrosion_sp_cost
+        return False, base
+
+    def pay_ego_cost(self, unit: Unit, ego, slot: ActionSlot, cost: int,
+                     use_corrosion: bool) -> None:
         before = unit.sp
         unit.sp = max(-unit.max_sp, unit.sp - cost)
         unit.ego_used_this_turn = True
         unit.state["last_ego"] = ego.eid
+        used = list(unit.state.get("egos_used_this_turn") or [])
+        if ego.eid not in used:
+            used.append(ego.eid)
+        unit.state["egos_used_this_turn"] = used
         self.bump("ego_use")
-        self.log("ego_use", {"unit": unit.uid, "ego": ego.eid, "corrosion": slot.corrosion,
+        if use_corrosion:
+            self.bump("ego_corrosion")
+        if slot.corrosion:
+            self.bump("ego_overclock")
+        self.log("ego_use", {"unit": unit.uid, "ego": ego.eid,
+                             "corrosion": bool(use_corrosion),
+                             "overclock": bool(slot.corrosion),
                              "sp_cost": cost, "sp_before": before, "sp_after": unit.sp})
         self.log_sp(Ctx(self, unit), unit, before, unit.sp, {"kind": "ego_cost"})
         # E.G.O 抗性覆盖：使用后自身罪孽抗性变为该 E.G.O 的抗性（持续到回合结束）
         if self.config.ego_resistance_override and ego.resist_override:
             unit.resist_override = dict(ego.resist_override)
         if self.config.ego_passives_enabled:
-            ctx = Ctx(self, unit, None, skill, source=f"ego:{ego.eid}")
+            ctx = Ctx(self, unit, None, ego.variant(use_corrosion), source=f"ego:{ego.eid}")
             run_hooks(ego.passive_effects, ctx, Timing.ON_USE)
 
     # ------------------------------------------------------------------
@@ -496,6 +579,8 @@ class Battle:
                       b_unit: Unit, b_slot: ActionSlot) -> None:
         b_skill = self.build_skill(b_unit, b_slot)
         b_slot.acted = True
+        a_unit.state["_clash_bonus"] = 0
+        b_unit.state["_clash_bonus"] = 0
         a_ctx = Ctx(self, a_unit, b_unit, a_skill, source="skill", mode=TargetMode.CLASH)
         b_ctx = Ctx(self, b_unit, a_unit, b_skill, source="skill", mode=TargetMode.CLASH)
         run_hooks(a_skill.effects, a_ctx, Timing.ON_USE)
@@ -509,71 +594,121 @@ class Battle:
 
         if self.config.clash_model == "reflex":
             winner, a_kept = self._clash_reflex(a_unit, a_skill, b_unit, b_skill)
+            a_cracked = b_cracked = {}
         else:
-            winner, a_kept = self._clash_advance(a_unit, a_skill, b_unit, b_skill)
+            winner, a_kept, a_cracked, b_cracked = self._clash_advance(a_unit, a_skill, b_unit, b_skill)
 
         if winner == "a":
             before = a_unit.sp
-            a_unit.sp = min(a_unit.max_sp, a_unit.sp + self.config.clash_win_sp_gain)
-            b_unit.sp = max(-b_unit.max_sp, b_unit.sp + self.config.clash_lose_sp_loss)
+            if a_unit.has_sanity:
+                a_unit.sp = min(a_unit.max_sp, a_unit.sp + self.config.clash_win_sp_gain)
+            if b_unit.has_sanity:
+                b_unit.sp = max(-b_unit.max_sp, b_unit.sp + self.config.clash_lose_sp_loss)
+            a_unit.state["clash_wins_this_turn"] = int(a_unit.state.get("clash_wins_this_turn", 0)) + 1
             self.log("clash_win", {"unit": a_unit.uid, "skill": a_skill.sid,
-                                   "sp": a_unit.sp})
+                                   "sp": a_unit.sp, "cracked": sorted(b_cracked)})
             self.log_sp(a_ctx, a_unit, before, a_unit.sp, {"kind": "clash_win"})
+            a_ctx.clash_result = "win"
+            b_ctx.clash_result = "lose"
             run_hooks(a_skill.effects, a_ctx, Timing.CLASH_WIN)
             run_hooks(b_skill.effects, b_ctx, Timing.CLASH_LOSE)
             self.strike(a_unit, b_unit, a_skill, a_ctx, carried=a_kept)
+            # Unbreakable Coin：失败方的 Cracked 硬币仍会结算
+            if b_cracked and b_unit.alive:
+                self.log("cracked_coins", {"unit": b_unit.uid, "skill": b_skill.sid,
+                                           "coins": sorted(b_cracked)})
+                self.strike(b_unit, a_unit, b_skill, b_ctx, carried=b_cracked,
+                            cracked=set(b_cracked))
         elif winner == "b":
             before = b_unit.sp
-            b_unit.sp = min(b_unit.max_sp, b_unit.sp + self.config.clash_win_sp_gain)
-            a_unit.sp = max(-a_unit.max_sp, a_unit.sp + self.config.clash_lose_sp_loss)
+            if b_unit.has_sanity:
+                b_unit.sp = min(b_unit.max_sp, b_unit.sp + self.config.clash_win_sp_gain)
+            if a_unit.has_sanity:
+                a_unit.sp = max(-a_unit.max_sp, a_unit.sp + self.config.clash_lose_sp_loss)
+            b_unit.state["clash_wins_this_turn"] = int(b_unit.state.get("clash_wins_this_turn", 0)) + 1
             self.log("clash_win", {"unit": b_unit.uid, "skill": b_skill.sid,
-                                   "sp": b_unit.sp})
+                                   "sp": b_unit.sp, "cracked": sorted(a_cracked)})
             self.log_sp(b_ctx, b_unit, before, b_unit.sp, {"kind": "clash_win"})
+            b_ctx.clash_result = "win"
+            a_ctx.clash_result = "lose"
             run_hooks(b_skill.effects, b_ctx, Timing.CLASH_WIN)
             run_hooks(a_skill.effects, a_ctx, Timing.CLASH_LOSE)
             self.strike(b_unit, a_unit, b_skill, b_ctx, carried=None)
+            if a_cracked and a_unit.alive:
+                self.log("cracked_coins", {"unit": a_unit.uid, "skill": a_skill.sid,
+                                           "coins": sorted(a_cracked)})
+                self.strike(a_unit, b_unit, a_skill, a_ctx, carried=a_cracked,
+                            cracked=set(a_cracked))
         else:
             self.log("clash_draw", {"a": a_unit.uid, "b": b_unit.uid})
 
     def _clash_advance(self, a_unit: Unit, a_skill: Skill, b_unit: Unit, b_skill: Skill):
         """拼点模型 A：双方每轮各消耗自己的下一枚硬币（硬币数多者占优）。
 
-        计划书没有规定拼点细节，这里把两种社区理解都实现出来，
-        由 ``encounter_buffs["clash_model"]`` 切换，默认 advance。
+        Unbreakable Coin：拼点失败时不破坏而是 **Cracked**（保留并在失败后仍能结算，
+        威力固定 +1/−1）。
         """
         ai = bi = 0
         a_destroyed = b_destroyed = 0
         a_kept: dict = {}
+        b_kept: dict = {}
+        a_cracked: dict = {}
+        b_cracked: dict = {}
         while ai < len(a_skill.coins) and bi < len(b_skill.coins):
             a_heads = self.flip(a_unit, a_skill.coins[ai])
             b_heads = self.flip(b_unit, b_skill.coins[bi])
-            av = self.clash_value(a_unit, a_skill, ai, a_heads)
-            bv = self.clash_value(b_unit, b_skill, bi, b_heads)
+            av = self.clash_value(a_unit, a_skill, ai, a_heads, opponent=b_unit)
+            bv = self.clash_value(b_unit, b_skill, bi, b_heads, opponent=a_unit)
             self.log("clash_roll", {
                 "a_coin": ai, "a_heads": a_heads, "a_power": av,
                 "b_coin": bi, "b_heads": b_heads, "b_power": bv,
                 "result": "a" if av > bv else ("b" if bv > av else "tie")})
             if av > bv:
-                b_destroyed += 1
+                if b_skill.coins[bi].unbreakable:
+                    b_cracked[bi] = b_heads
+                else:
+                    b_destroyed += 1
                 a_kept[ai] = a_heads
             elif bv > av:
-                a_destroyed += 1
+                if a_skill.coins[ai].unbreakable:
+                    a_cracked[ai] = a_heads
+                else:
+                    a_destroyed += 1
+                b_kept[bi] = b_heads
             else:
                 if self.config.clash_tie_destroys_both:
-                    a_destroyed += 1
-                    b_destroyed += 1
+                    if a_skill.coins[ai].unbreakable:
+                        a_cracked[ai] = a_heads
+                    else:
+                        a_destroyed += 1
+                    if b_skill.coins[bi].unbreakable:
+                        b_cracked[bi] = b_heads
+                    else:
+                        b_destroyed += 1
                 else:
                     a_kept[ai] = a_heads
+                    b_kept[bi] = b_heads
             ai += 1
             bi += 1
-        a_left = len(a_skill.coins) - a_destroyed
-        b_left = len(b_skill.coins) - b_destroyed
-        winner = "a" if a_left > b_left else ("b" if b_left > a_left else "draw")
+        # 判负条件：自己的硬币**全部**被破坏或 Cracked（wiki：Unbreakable 只是不破坏）
+        a_left = len(a_skill.coins) - a_destroyed - len(a_cracked)
+        b_left = len(b_skill.coins) - b_destroyed - len(b_cracked)
+        a_out = a_left <= 0
+        b_out = b_left <= 0
+        if a_out and not b_out:
+            winner = "b"
+        elif b_out and not a_out:
+            winner = "a"
+        elif a_out and b_out:
+            winner = "a" if len(a_kept) > len(b_kept) else ("b" if len(b_kept) > len(a_kept) else "draw")
+        else:
+            winner = "a" if a_left > b_left else ("b" if b_left > a_left else "draw")
         self.bump("clash_count")
-        return winner, (a_kept if self.config.clash_coin_carryover else None)
+        kept = a_kept if self.config.clash_coin_carryover else None
+        return winner, kept, a_cracked, b_cracked
 
     def _clash_reflex(self, a_unit: Unit, a_skill: Skill, b_unit: Unit, b_skill: Skill):
-        """拼点模型 B：胜者保留当前硬币继续拼，只有败者的硬币被破坏。
+        """拼点模型 B（synthetic）：胜者保留当前硬币续拼，只有败者硬币被破坏。
 
         这个模型下「高威力少硬币」的技能在拼点中很强（更接近单硬币 E.G.O 的手感）。
         """
@@ -581,8 +716,8 @@ class Battle:
         while ai < len(a_skill.coins) and bi < len(b_skill.coins):
             a_heads = self.flip(a_unit, a_skill.coins[ai])
             b_heads = self.flip(b_unit, b_skill.coins[bi])
-            av = self.clash_value(a_unit, a_skill, ai, a_heads)
-            bv = self.clash_value(b_unit, b_skill, bi, b_heads)
+            av = self.clash_value(a_unit, a_skill, ai, a_heads, opponent=b_unit)
+            bv = self.clash_value(b_unit, b_skill, bi, b_heads, opponent=a_unit)
             self.log("clash_roll", {
                 "a_coin": ai, "a_heads": a_heads, "a_power": av,
                 "b_coin": bi, "b_heads": b_heads, "b_power": bv,
@@ -603,7 +738,44 @@ class Battle:
         self.bump("clash_count")
         return winner, None
 
-    def clash_value(self, unit: Unit, skill: Skill, coin_index: int, heads: bool) -> int:
+    def coin_power(self, unit: Unit, skill: Skill, coin_index: int, heads: bool,
+                   cracked: bool = False, power_mod: int = 0) -> int:
+        """Coin Roll = 硬币的 Final Power。
+
+        * 常规：``base_power + (有利面时 coin.power)``；
+        * **Cracked Unbreakable Coin**：Coin Power 固定为 +1（正面硬币）/ -1（负面硬币）；
+        * 
+          不会低于 0。
+        """
+        coin = skill.coins[coin_index]
+        val = skill.base_power + power_mod
+        if cracked:
+            val += 1 if coin.kind.value == "positive" else -1
+        elif coin.favorable(heads):
+            val += coin.power
+        return max(0, val)
+
+    def _apply_coin_thresholds(self, actor: Unit, skill: Skill, coin_index: int) -> None:
+        """HP 阈值 → 硬币转为 Unbreakable（真实 Imago 机制：<66% 最后一枚，<33% 全部）。"""
+        for rule in skill.coin_thresholds or ():
+            if not isinstance(rule, dict) or not rule.get("unbreakable"):
+                continue
+            if actor.hp_pct() > float(rule.get("below_pct", 0.0)):
+                continue
+            ref = rule.get("coin", "all")
+            targets = range(len(skill.coins)) if ref == "all" else \
+                [len(skill.coins) - 1 if ref == "last" else int(ref)]
+            for i in targets:
+                if 0 <= i < len(skill.coins):
+                    skill.coins[i].unbreakable = True
+
+    def clash_value(self, unit: Unit, skill: Skill, coin_index: int, heads: bool,
+                    opponent: Optional[Unit] = None) -> int:
+        """拼点威力。
+
+        ``Battles`` 页：「The Skill with higher Level gains **1 Power per 3 Level difference,
+        rounded down**」——因此需要对手的防御等级。
+        """
         coin = skill.coins[coin_index]
         val = skill.base_power
         if coin.favorable(heads):
@@ -612,31 +784,46 @@ class Battle:
             spec = status_spec(key)
             if spec.clash_power_per_count:
                 val += spec.clash_power_per_count * max(st.count, st.potency)
-        if self.config.clash_level_bonus_per_3:
-            other_level = 0
-            val += int((unit.effective_offense_level(skill.offense_level_mod) - other_level)
-                       // 3 * self.config.clash_level_bonus_per_3)
+        if opponent is not None and self.config.clash_level_bonus_per_3:
+            diff = unit.effective_offense_level(skill.offense_level_mod) - opponent.defense_level
+            if diff > 0:
+                val += int(diff // 3 * self.config.clash_level_bonus_per_3)
+        val += int(unit.state.get("_clash_bonus", 0))
         return val
 
     # ------------------------------------------------------------------
     def strike(self, actor: Unit, target: Unit, skill: Skill, proto: Ctx,
-               carried: Optional[dict] = None, first_index: int = 0) -> None:
-        """按硬币逐枚结算（含重复投掷 / 追加硬币）。"""
+               carried: Optional[dict] = None, first_index: int = 0,
+               cracked: Optional[set] = None) -> None:
+        """按硬币逐枚结算（含 Coin Reuse 与追加硬币）。
+
+        Coin Reuse 的真实语义（wiki.gg/Battles + E.G.O 文本）：
+        * 只重复**指定的那一枚**硬币；
+        * ``max_reuse`` 是每技能上限；
+        * 每次 reuse 前重新判定条件；
+        * reuse 的硬币重新走完整结算（含 [On Hit]）。
+        """
         if target is None or not target.alive:
             return
         carried = carried or {}
+        cracked = cracked or set()
         run_hooks(skill.effects, proto, Timing.BEFORE_ATTACK)
-        # 「所有硬币重复投掷」在技能开始时一次性展开，避免重复投掷又递归地插入新硬币
-        repeat_all = int(proto.note.get("repeat_all", 0))
+        frame = proto.frame
+        frame.setdefault("pending_reuse", [])
+        frame.setdefault("reuse_counts", {})
+        frame.setdefault("extra_queue", [])
+        # synthetic 的「全硬币重复投掷」（需要显式 synthetic: true 才能触发）
+        repeat_all = int(frame.get("repeat_all", 0))
         queue: list = []
         for ci in range(len(skill.coins)):
             queue.append(ci)
             for _ in range(repeat_all):
                 queue.append(ci)
-        # 技能级「追加硬币」：在末尾追加最后一枚硬币
         for _ in range(int(proto.extra_coins)):
             if queue:
                 queue.append(queue[-1])
+        if cracked:
+            queue = [ci for ci in queue if ci in cracked]
         proto.extra_coins = 0
         throw_counts: dict = {}
         extra_throws = repeat_all * len(skill.coins)
@@ -646,42 +833,85 @@ class Battle:
             i += 1
             if ci >= len(skill.coins):
                 continue
-            throw_index = throw_counts.get(ci, 0)
-            throw_counts[ci] = throw_index + 1
-            carry_heads = carried.get(ci) if throw_index == 0 else None
-            repeats = 0
-            ctx = None
-            while True:
-                ctx = proto.clone_for_coin(ci, skill.coins[ci])
-                ctx.is_repeat_throw = repeats > 0
-                if carry_heads is not None and repeats == 0:
-                    heads = carry_heads
-                else:
-                    heads = self.flip(actor, skill.coins[ci])
-                ctx.coin_heads = heads
-                self.resolve_coin(actor, target, skill, ci, ctx)
-                if self.check_end():
-                    return
-                if (ctx.repeat_extra > 0 and self.config.repeat_coin_enabled
-                        and repeats < self.config.max_repeat_per_coin):
-                    ctx.repeat_extra -= 1
-                    repeats += 1
-                    extra_throws += 1
-                    carry_heads = None
+            extra, ended = self._throw_coin(actor, target, skill, ci, proto, carried,
+                                            throw_counts, is_reuse=False,
+                                            cracked=ci in cracked)
+            extra_throws += extra
+            if ended:
+                return
+            # 处理本次投掷注册的 Coin Reuse 请求（reuse 抛掷可能再注册新的）
+            guard = 0
+            while frame["pending_reuse"] and guard < 256:
+                guard += 1
+                req = frame["pending_reuse"].pop(0)
+                tci = int(req["coin"])
+                if frame["reuse_counts"].get(tci, 0) >= int(req["max_reuse"]):
                     continue
-                break
-            if ctx is not None and ctx.extra_coins > 0 and repeats == 0:
-                extra = ctx.extra_coins
-                ctx.extra_coins = 0
-                queue[i:i] = [ci] * extra
+                check_ctx = proto.clone_for_coin(tci, skill.coins[tci])
+                if not eval_condition(req.get("if"), check_ctx):
+                    continue
+                frame["reuse_counts"][tci] = frame["reuse_counts"].get(tci, 0) + 1
+                self.bump("reuse_count")
+                extra, ended = self._throw_coin(actor, target, skill, tci, proto, None,
+                                                throw_counts, is_reuse=True,
+                                                cracked=tci in cracked)
                 extra_throws += extra
+                if ended:
+                    return
+            while frame["extra_queue"]:
+                queue.append(frame["extra_queue"].pop(0))
         if extra_throws:
             self.bump("repeat_coin", extra_throws)
         run_hooks(skill.effects, proto, Timing.AFTER_ATTACK)
 
+    def _throw_coin(self, actor: Unit, target: Unit, skill: Skill, ci: int, proto: Ctx,
+                    carried: Optional[dict], throw_counts: dict,
+                    is_reuse: bool = False, cracked: bool = False) -> tuple:
+        """投掷一枚硬币（含 synthetic 的「本硬币再投一次」循环）。返回 (额外投掷数, 是否终止)。"""
+        throw_index = throw_counts.get(ci, 0)
+        throw_counts[ci] = throw_index + 1
+        carry_heads = None
+        if not is_reuse and throw_index == 0 and carried:
+            carry_heads = carried.get(ci)
+        repeats = 0
+        extra = 0
+        ctx = None
+        while True:
+            ctx = proto.clone_for_coin(ci, skill.coins[ci])
+            ctx.is_reuse = is_reuse or repeats > 0
+            ctx.cracked = cracked
+            ctx.clash_count = int(actor.state.get("clash_wins_this_turn", 0))
+            ctx.clash_result = proto.clash_result
+            if carry_heads is not None and repeats == 0:
+                heads = carry_heads
+            else:
+                heads = self.flip(actor, skill.coins[ci])
+            ctx.coin_heads = heads
+            self.resolve_coin(actor, target, skill, ci, ctx)
+            if self.check_end():
+                return extra, True
+            if (ctx.repeat_extra > 0 and self.config.coin_reuse_enabled
+                    and not ctx.is_reuse
+                    and repeats < self.config.max_repeat_per_coin):
+                ctx.repeat_extra -= 1
+                repeats += 1
+                extra += 1
+                carry_heads = None
+                continue
+            break
+        if ctx is not None and ctx.extra_coins > 0:
+            n = int(ctx.extra_coins)
+            ctx.extra_coins = 0
+            proto.frame["extra_queue"].extend([ci] * n)
+        return extra, False
+
     def resolve_coin(self, actor: Unit, target: Unit, skill: Skill, ci: int, ctx: Ctx) -> None:
         coin = skill.coins[ci]
+        self._apply_coin_thresholds(actor, skill, ci)
         when_side = Timing.COIN_HEADS if ctx.coin_heads else Timing.COIN_TAILS
+        hit_side = Timing.HEADS_HIT if ctx.coin_heads else Timing.TAILS_HIT
+        run_hooks(coin.effects, ctx, Timing.COIN_START)
+        run_hooks(skill.effects, ctx, Timing.COIN_START)
         run_hooks(coin.effects, ctx, Timing.BEFORE_COIN)
         run_hooks(skill.effects, ctx, Timing.BEFORE_COIN)
         run_hooks(coin.effects, ctx, when_side)
@@ -689,16 +919,29 @@ class Battle:
         self.log("coin", {
             "unit": actor.uid, "target": target.uid, "skill": skill.sid, "coin": ci,
             "heads": ctx.coin_heads, "coin_kind": coin.kind.value, "damage": coin.damage,
-            "power": self.clash_value(actor, skill, ci, bool(ctx.coin_heads))})
+            "reuse": bool(ctx.is_reuse), "cracked": bool(ctx.cracked),
+            "power": self.coin_power(actor, skill, ci, bool(ctx.coin_heads), cracked=ctx.cracked)})
         # [命中时]（本模拟器默认每枚硬币都会命中；闪避类机制不在本实验范围）
+        run_hooks(coin.effects, ctx, hit_side)
+        run_hooks(skill.effects, ctx, hit_side)
         run_hooks(coin.effects, ctx, Timing.COIN_HIT)
         run_hooks(skill.effects, ctx, Timing.COIN_HIT)
+        if ctx.clash_result == "win":
+            run_hooks(coin.effects, ctx, Timing.HIT_AFTER_CLASH_WIN)
+            run_hooks(skill.effects, ctx, Timing.HIT_AFTER_CLASH_WIN)
+        elif ctx.clash_result == "lose":
+            run_hooks(coin.effects, ctx, Timing.HIT_AFTER_CLASH_LOSE)
+            run_hooks(skill.effects, ctx, Timing.HIT_AFTER_CLASH_LOSE)
+        if ctx.cracked:
+            run_hooks(coin.effects, ctx, Timing.ON_HIT_WITHOUT_CRACKING)
+            run_hooks(skill.effects, ctx, Timing.ON_HIT_WITHOUT_CRACKING)
         if not ctx.cancel_hit:
-            amount = coin.damage
-            if self.config.coin_power_adds_damage and coin.favorable(bool(ctx.coin_heads)):
-                amount += coin.power
-            deal(self, actor, target, amount, skill.sin, skill.damage_type, ctx=ctx,
-                 origin="coin")
+            coin_roll = self.coin_power(actor, skill, ci, bool(ctx.coin_heads), cracked=ctx.cracked)
+            coin_roll += ctx.power_mod
+            adder = coin.damage + ctx.damage_mod  # coin.damage = synthetic attack adder
+            deal(self, actor, target, max(0, coin_roll), skill.sin, skill.damage_type,
+                 ctx=ctx, origin="coin", offense_bonus=skill.offense_level_mod,
+                 adder=adder)
         # 目标身上的「命中时」状态（沉沦 / 蝶 / 破裂…）
         if self.config.status_hooks_enabled:
             self.run_status_hooks(target, Timing.COIN_HIT,
@@ -861,6 +1104,31 @@ class Battle:
         if boss.state.get("on_form_change_effects"):
             run_hooks(boss.state["on_form_change_effects"], ctx, Timing.ON_FORM_CHANGE)
 
+    def activate_time_state(self) -> None:
+        """Moment of Entangled Lives（wiki.gg/Imago passive）：
+
+        回合开始激活三套时间栈中最高的一个；并列时保持当前激活状态；
+        激活状态改变时获得 1 层 Temporal Disjunction（效果未实现，只记录）。
+        """
+        boss = self.boss()
+        if boss is None or not boss.alive:
+            return
+        keys = (IN_THE_PAST, IN_THE_PRESENT, IN_THE_FUTURE)
+        stacks = {k: boss.status_count(k) for k in keys}
+        top = max(stacks.values())
+        if top <= 0:
+            return
+        cur = boss.state.get("active_time_state")
+        if cur in stacks and stacks[cur] == top:
+            new = cur
+        else:
+            new = next(k for k in keys if stacks[k] == top)
+        if new != cur:
+            boss.state["active_time_state"] = new
+            self.bump("time_state_changes")
+            self.log("time_state_change", {"from": cur, "to": new, "stacks": stacks})
+        boss.state["cycle_turn"] = int(boss.state.get("cycle_turn", 0)) + 1
+
     def check_hp_thresholds(self, unit: Unit) -> None:
         thresholds = unit.state.get("stack_thresholds") or []
         idx = int(unit.state.get("stack_threshold_index", 0))
@@ -883,9 +1151,17 @@ class Battle:
     # ==================================================================
     def apply_damage(self, source: Optional[Unit], target: Unit, amount: int,
                      bd: Optional[DamageBreakdown], origin: str = "skill") -> int:
+        """伤害结算 + 混乱 / 死亡 / 本体阈值。"""
         if target is None or not target.alive or amount <= 0:
             return 0
-        target.hp -= amount
+        absorbed = 0
+        if target.shield > 0 and amount > 0:
+            absorbed = min(target.shield, amount)
+            target.shield -= absorbed
+            amount -= absorbed
+            self.log("shield", {"unit": target.uid, "absorbed": absorbed, "shield": target.shield})
+        if amount > 0:
+            target.hp -= amount
         self.bump("total_damage", amount)
         self.log("damage", {"source": source.uid if source else "", "target": target.uid,
                             "amount": amount, "origin": origin, "hp": max(0, target.hp),
@@ -893,9 +1169,9 @@ class Battle:
         # 幻影伤害转移给本体
         if target.kind == "phantom":
             if self.config.phantom_stack_decay_per_coin and origin == "coin":
-                # 每枚硬币只减一次对应状态栈（计划书 §18.1）
+                # Moment of Entangled Lives：幻影被作为主要目标攻击时，本体失去对应栈
                 self.add_stacks(-self.config.phantom_stack_decay_per_coin, target.time_type or "all",
-                                None, reason="phantom_coin_decay")
+                                None, reason="illusory_butterfly_hit")
             if self.config.phantom_damage_transfer > 0:
                 boss = self.boss()
                 transfer = int(round(amount * self.config.phantom_damage_transfer))
@@ -905,7 +1181,7 @@ class Battle:
         self.check_stagger(target)
         self.check_hp_thresholds(target)
         self.check_death(target)
-        return amount
+        return amount + absorbed
 
     def check_stagger(self, unit: Unit) -> None:
         thresholds = unit.stagger_thresholds or []
@@ -918,6 +1194,8 @@ class Battle:
 
     def force_stagger(self, unit: Unit) -> None:
         unit.staggered = True
+        # 同回合跨过多个阈值 → 混乱等级上升（Stagger/+/++ = +1 / +1.5 / +2 静态修正）
+        unit.stagger_level = min(3, unit.stagger_level + 1)
         unit.state["stagger_until_turn"] = (self.state.turn + 1
                                             if self.config.stagger_lasts_next_turn
                                             else self.state.turn)
@@ -1000,5 +1278,9 @@ class Battle:
             v = script[self.state.script_pos % len(script)]
             self.state.script_pos += 1
             return bool(v) if isinstance(v, bool) else str(v).lower() in ("heads", "h", "1", "true")
-        p = heads_probability(unit.sp, self.config.san_per_point)
+        if not getattr(unit, "has_sanity", True):
+            # 无 SP 单位（Abnormality）：固定 50%（计划书/审计 §3）
+            p = 0.5
+        else:
+            p = heads_probability(unit.sp, self.config.san_per_point)
         return self.rng.chance(p)

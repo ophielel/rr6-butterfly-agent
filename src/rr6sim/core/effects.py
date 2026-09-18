@@ -50,6 +50,10 @@ def apply_effects(effects, ctx: Ctx) -> None:
             eff = {"kind": eff}
         if not isinstance(eff, dict):
             raise TypeError(f"效果必须是 dict 或 str，收到 {type(eff)}")
+        # ``reuse_only`` 对应游戏文本里的「Reuse - On Hit」前缀：
+        # 只在被 Coin Reuse 重新投掷的硬币上触发。
+        if eff.get("reuse_only") and not ctx.is_reuse:
+            continue
         if not eval_condition(eff.get("if"), ctx):
             continue
         kind = eff.get("kind")
@@ -73,6 +77,9 @@ def run_hooks(effects, ctx: Ctx, when: str) -> None:
 # ---------------------------------------------------------------------------
 
 def _amount(eff: dict, ctx: Ctx, key: str = "amount", default: int = 0) -> int:
+    if "amount_random" in eff:
+        lo, hi = eff["amount_random"]
+        return ctx.battle.rng.randint(int(lo), int(hi))
     if key in eff:
         return int(eff[key])
     if "from_status" in eff:
@@ -158,12 +165,26 @@ def _h_lose_sp(eff: dict, ctx: Ctx) -> None:
 
 def _h_heal_sp(eff: dict, ctx: Ctx) -> None:
     amt = _amount(eff, ctx, "amount")
+    if "min" in eff:
+        amt = max(amt, int(eff["min"]))
     if amt <= 0:
         return
     for u in _targets(eff, ctx):
         before = u.sp
         u.sp = min(u.max_sp, u.sp + amt)
         ctx.battle.log_sp(ctx, u, before, u.sp, eff)
+
+
+def _h_add_shield(eff: dict, ctx: Ctx) -> None:
+    """护盾：先于 HP 吸收伤害（wiki.gg/Battles: Shield）。"""
+    amt = _amount(eff, ctx, "amount")
+    for u in _targets(eff, ctx, default="self"):
+        u.shield = max(0, u.shield + amt)
+
+
+def _h_set_shield(eff: dict, ctx: Ctx) -> None:
+    for u in _targets(eff, ctx, default="self"):
+        u.shield = max(0, int(eff.get("value", 0)))
 
 
 def _h_heal_hp(eff: dict, ctx: Ctx) -> None:
@@ -228,6 +249,31 @@ def _h_note_scale(eff: dict, ctx: Ctx) -> None:
         ctx.note["scaled_potency"] = ctx.note.get("scaled_potency", 0) + int(val * float(eff["potency"]))
 
 
+def _h_modify_clash_power(eff: dict, ctx: Ctx) -> None:
+    """拼点威力修正（只影响拼点，不影响伤害）。
+
+    ``amount_from_status`` = {"keys": [...], "who": "other", "per": N, "max": M}
+    表示「目标身上 (这些状态的 Potency + Count) 每 N 点给 +1 拼点威力，上限 M」。
+    """
+    spec = eff.get("amount_from_status")
+    if spec:
+        unit = ctx.owner(spec.get("who", "other"))
+        total = 0
+        if unit is not None:
+            for key in spec.get("keys", []):
+                st = unit.statuses.get(key)
+                if st is not None:
+                    total += st.potency + st.count
+        per = max(1, int(spec.get("per", 1)))
+        amt = min(int(spec.get("max", 99)), total // per)
+    else:
+        amt = _amount(eff, ctx, "amount")
+    unit = ctx.self_unit
+    if unit is None:
+        return
+    unit.state["_clash_bonus"] = int(unit.state.get("_clash_bonus", 0)) + amt
+
+
 def _h_modify_power(eff: dict, ctx: Ctx) -> None:
     ctx.power_mod += _amount(eff, ctx, "amount")
 
@@ -240,19 +286,63 @@ def _h_modify_damage_mult(eff: dict, ctx: Ctx) -> None:
     ctx.damage_mult *= float(eff.get("mult", 1.0))
 
 
-def _h_repeat_coin(eff: dict, ctx: Ctx) -> None:
-    if not ctx.battle.config.repeat_coin_enabled:
+def _h_reuse_coin(eff: dict, ctx: Ctx) -> None:
+    """Coin Reuse：重复投掷**指定的那一枚**硬币（贴实游戏机制）。
+
+    与 synthetic 的 ``repeat_coin`` 区别：
+    * 指定硬币（``coin: "current"`` / 索引 / ``"last"``），不是把整个技能重打一遍；
+    * ``max_reuse`` 是**每技能**的上限（游戏文本："N times max per Skill"）；
+    * 每次 reuse 前**重新判定 ``if`` 条件**；
+    * 被 reuse 的硬币默认不再触发新的 reuse（``allow_recursive`` 可放开）；
+    * reuse 的硬币会重新走完整的硬币结算（含 [On Hit]），
+      带 ``reuse_only`` 的效果只在这种投掷上触发。
+    """
+    if not ctx.battle.config.coin_reuse_enabled:
         return
-    if ctx.is_repeat_throw and not eff.get("allow_recursive"):
-        # 「重复投掷」产生的硬币不再触发新的重复投掷，避免无限递归
+    # 注意：真实机制里 reuse 的硬币**可以**再次 reuse（"N times max per Skill"
+    # 就是靠每技能计数器封顶的），所以这里不阻止递归。
+    ref = eff.get("coin", "current")
+    n_coins = len(ctx.skill.coins) if ctx.skill is not None else 1
+    if ref == "current":
+        ci = ctx.coin_index
+    elif ref == "last":
+        ci = n_coins - 1
+    elif ref == "first":
+        ci = 0
+    else:
+        ci = int(ref)
+    if ci < 0 or ci >= n_coins:
+        return
+    ctx.frame.setdefault("pending_reuse", []).append({
+        "coin": ci,
+        "max_reuse": int(eff.get("max_reuse", 1)),
+        "if": eff.get("if"),
+        "allow_recursive": bool(eff.get("allow_recursive", False)),
+        "source": eff.get("source", ""),
+    })
+    ctx.battle.bump("reuse_requested")
+
+
+def _h_repeat_coin(eff: dict, ctx: Ctx) -> None:
+    """``synthetic``：把整个技能的所有硬币重复投掷 N 次。
+
+    这不是游戏机制，只用于 curriculum / 消融对照。
+    必须显式写 ``"synthetic": true`` 才能使用，避免再被当成真实规则使用。
+    """
+    if not eff.get("synthetic"):
+        raise ValueError(
+            "repeat_coin 是 synthetic 效果（游戏里不存在「全硬币重复投掷」这种写法）。"
+            "真实机制请用 reuse_coin（指定硬币 + max_reuse + 条件）。"
+            "确实要做 curriculum 实验就显式加 \"synthetic\": true。")
+    if not ctx.battle.config.coin_reuse_enabled:
+        return
+    if ctx.is_reuse and not eff.get("allow_recursive"):
         return
     times = int(eff.get("times", 1))
     if times <= 0:
         return
     if eff.get("all_coins"):
-        # 技能级「所有硬币重复投掷」：写进 proto.note，由 strike 读取
-        # （多次触发会累加，例如「每 10 级沉沦重复 1 次，最多 2 次」）
-        ctx.note["repeat_all"] = int(ctx.note.get("repeat_all", 0)) + times
+        ctx.frame["repeat_all"] = int(ctx.frame.get("repeat_all", 0)) + times
     else:
         ctx.repeat_extra += times
     # 实际重复投掷次数由 strike 统计（battle.counters["repeat_coin"]）
@@ -380,15 +470,19 @@ def _install() -> None:
     register_handler("lose_sp", _h_lose_sp)
     register_handler("heal_sp", _h_heal_sp)
     register_handler("heal_hp", _h_heal_hp)
+    register_handler("add_shield", _h_add_shield)
+    register_handler("set_shield", _h_set_shield)
     register_handler("deal_damage", _h_deal_damage)
     register_handler("add_resource", _h_add_resource)
     register_handler("set_resource", _h_set_resource)
     register_handler("consume_resource", _h_consume_resource)
     register_handler("note_scale", _h_note_scale)
     register_handler("modify_power", _h_modify_power)
+    register_handler("modify_clash_power", _h_modify_clash_power)
     register_handler("modify_damage", _h_modify_damage)
     register_handler("modify_damage_mult", _h_modify_damage_mult)
     register_handler("repeat_coin", _h_repeat_coin)
+    register_handler("reuse_coin", _h_reuse_coin)
     register_handler("add_coin", _h_add_coin)
     register_handler("set_state", _h_set_state)
     register_handler("log_event", _h_log_event)

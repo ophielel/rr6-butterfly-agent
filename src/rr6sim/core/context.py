@@ -26,17 +26,22 @@ class Ctx:
     hit: bool = True
     cancel_hit: bool = False
     damage: int = 0
+    clash_count: int = 0   # 本回合已赢得的拼点次数（Damage Formula 的 Clash Count）
     source: str = "skill"
     when: str = ""
     mode: TargetMode = TargetMode.ONE_SIDED
     #: 每枚硬币的可变状态
-    repeat_extra: int = 0       # 当前硬币还需重复投掷的次数
-    is_repeat_throw: bool = False  # 本次投掷是否由「重复投掷」产生
+    repeat_extra: int = 0       # （synthetic）当前硬币还需重复投掷的次数
+    is_reuse: bool = False      # 本次投掷是否由 Coin Reuse 产生
+    cracked: bool = False       # 本硬币是否是 Cracked Unbreakable Coin
+    clash_result: str = ""      # win / lose / ""（用于 Hit after Clash Win/Lose 时点）
     extra_coins: int = 0        # 攻击结束后追加的硬币数
     power_mod: int = 0          # 本次拼点威力修正
     damage_mod: int = 0
     damage_mult: float = 1.0
     note: dict = field(default_factory=dict)
+    #: 一次技能执行内共享的可变帧（Coin Reuse 请求 / 已 reuse 次数）
+    frame: dict = field(default_factory=dict)
 
     # ------------------------------------------------------------------
     def clone_for_coin(self, coin_index: int, coin: Coin) -> "Ctx":
@@ -54,6 +59,9 @@ class Ctx:
             power_mod=self.power_mod,
             damage_mod=self.damage_mod,
             damage_mult=self.damage_mult,
+            frame=self.frame,
+            cracked=self.cracked,
+            clash_result=self.clash_result,
         )
 
     def owner(self, who: str = "self") -> Optional[Unit]:

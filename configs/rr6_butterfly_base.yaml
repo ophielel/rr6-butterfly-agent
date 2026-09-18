@@ -52,7 +52,7 @@ ego_resistance_override: true
 ego_passives_enabled: true
 sinking_enabled: true
 butterfly_special_sinking: true
-repeat_coin_enabled: true
+coin_reuse_enabled: true
 max_repeat_per_coin: 4
 disabled_egos: []
 disabled_identities: []

@@ -5,7 +5,9 @@
     "wiki_accessible": false,
     "note": "huijiwiki 在本机 403，无法直接取结构化数据；以下为按游戏机制重建的近似技能组（结构保真、数值待校验）。",
     "skill_compact_format": "硬币可用 {\"coin_count\": N, \"coin\": {...}} 表示 N 枚完全相同的硬币。",
-    "confidence": "low"
+    "confidence": "synthetic",
+    "warning": "本文件的技能数值是占位数据（synthetic），不是从 wiki 抄录的真实数值。deck 份数（3/2/1）与 E.G.O 绑定已按真实规则修正；技能 power/coin/状态施加仍需逐个人格页录入。见 docs/verification_checklist.md。",
+    "level_note": "offense/defense level 对齐到真实 Boss 的 60 级（避免人为的 -10 等级惩罚）"
   },
   "identities": [
     {
@@ -14,22 +16,22 @@
       "name_short": "蝶箱",
       "hp": 240,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         4,
         8
       ],
       "slots": 1,
-      "deck": [
-        "yi_s1",
-        "yi_s2",
-        "yi_s3"
-      ],
+      "deck": {
+        "yi_s1": 3,
+        "yi_s2": 2,
+        "yi_s3": 1
+      },
       "guard": "yi_guard",
       "egos": [
         "solemn_lament_yisang",
-        "yesteryear_yisang"
+        "bygone_days_yisang"
       ],
       "resources": {
         "living_butterfly": 0
@@ -225,8 +227,8 @@
           ]
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/李箱脑叶公司E.G.O::庄严哀悼",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     },
     {
       "key": "lantern_gregor",
@@ -234,18 +236,18 @@
       "name_short": "目灯虫",
       "hp": 255,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         3,
         7
       ],
       "slots": 1,
-      "deck": [
-        "gr_s1",
-        "gr_s2",
-        "gr_s3"
-      ],
+      "deck": {
+        "gr_s1": 3,
+        "gr_s2": 2,
+        "gr_s3": 1
+      },
       "guard": "gr_guard",
       "egos": [
         "solemn_lament_gregor"
@@ -414,8 +416,8 @@
           ]
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/格里高尔脑叶公司E.G.O:目灯",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     },
     {
       "key": "butler_faust",
@@ -423,18 +425,18 @@
       "name_short": "管家浮",
       "hp": 245,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         3,
         8
       ],
       "slots": 1,
-      "deck": [
-        "fa_s1",
-        "fa_s2",
-        "fa_s3"
-      ],
+      "deck": {
+        "fa_s1": 3,
+        "fa_s2": 2,
+        "fa_s3": 1
+      },
       "guard": "fa_guard",
       "egos": [],
       "resources": {},
@@ -583,8 +585,8 @@
           ]
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/浮士德呼啸山庄管家",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     },
     {
       "key": "hanafuda_ishmael",
@@ -592,21 +594,21 @@
       "name_short": "花札玛",
       "hp": 235,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         4,
         8
       ],
       "slots": 1,
-      "deck": [
-        "is_s1",
-        "is_s2",
-        "is_s3"
-      ],
+      "deck": {
+        "is_s1": 3,
+        "is_s2": 2,
+        "is_s3": 1
+      },
       "guard": "is_guard",
       "egos": [
-        "yesteryear_ishmael"
+        "bygone_days_ishmael"
       ],
       "resources": {
         "hikari": 0
@@ -778,8 +780,8 @@
           "max": 9
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/以实玛利定事务所代表",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     },
     {
       "key": "band_sinclair",
@@ -787,18 +789,18 @@
       "name_short": "乐队辛",
       "hp": 250,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         3,
         7
       ],
       "slots": 1,
-      "deck": [
-        "si_s1",
-        "si_s2",
-        "si_s3"
-      ],
+      "deck": {
+        "si_s1": 3,
+        "si_s2": 2,
+        "si_s3": 1
+      },
       "guard": "si_guard",
       "egos": [
         "harmony_sinclair"
@@ -959,8 +961,8 @@
           ]
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/辛克莱流浪乐队头目",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     },
     {
       "key": "lca_outis",
@@ -968,18 +970,18 @@
       "name_short": "LCA奥",
       "hp": 260,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 52,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         3,
         7
       ],
       "slots": 1,
-      "deck": [
-        "ou_s1",
-        "ou_s2",
-        "ou_s3"
-      ],
+      "deck": {
+        "ou_s1": 3,
+        "ou_s2": 2,
+        "ou_s3": 1
+      },
       "guard": "ou_guard",
       "egos": [],
       "resources": {
@@ -1149,8 +1151,8 @@
           ]
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/奥提斯LCA瓦吉特先锋三队队长",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     },
     {
       "key": "despair_rodion",
@@ -1158,21 +1160,21 @@
       "name_short": "绝望罗",
       "hp": 265,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
+      "offense_level": 60,
+      "defense_level": 60,
       "speed_range": [
         3,
         7
       ],
       "slots": 1,
-      "deck": [
-        "ro_s1",
-        "ro_s2",
-        "ro_s3"
-      ],
+      "deck": {
+        "ro_s1": 3,
+        "ro_s2": 2,
+        "ro_s3": 1
+      },
       "guard": "ro_guard",
       "egos": [
-        "frost_claw_rodion"
+        "rime_shank_rodion"
       ],
       "resources": {},
       "resistances": {
@@ -1340,8 +1342,8 @@
           ]
         }
       ],
-      "source": "https://limbuscompany.huijiwiki.com/wiki/罗佳脑叶公司E.G.O::泪锋之剑",
-      "confidence": "low"
+      "source": "未录入：数值为占位（synthetic），机制待按 wiki.gg 人格页逐条核对",
+      "confidence": "synthetic"
     }
   ]
 }

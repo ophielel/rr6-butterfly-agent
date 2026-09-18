@@ -9,6 +9,25 @@ from .skill import Ego, Skill
 from .status import StatusRegistry, StatusStack
 
 
+def _deep(value):
+    """深复制可变结构（res / state / flags）。
+
+    这些字段里会塞 list/dict（幻影日志、已使用 E.G.O 列表、Boss 阈值指针…）。
+    浅复制会让 Beam/MCTS 的分支互相污染，所以统一深复制。
+    静态数据（被动效果表、速度范围、抗性表）不含会被改写的结构，
+    为性能考虑仍走浅复制。
+    """
+    if isinstance(value, dict):
+        return {k: _deep(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_deep(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_deep(v) for v in value)
+    if isinstance(value, set):
+        return set(value)
+    return value
+
+
 @dataclass
 class ActionSlot:
     """一个行动槽。
@@ -27,7 +46,8 @@ class ActionSlot:
     target_uid: str = ""
     target_slot: int = -1
     acted: bool = False          # 本回合是否已经结算
-    cancelled: bool = False      # 被取消（混乱 / 死亡 / 目标消失）
+    cancelled: bool = False      # 行动被取消（混乱 / 死亡 / 目标消失），但**不代表不能被攻击**
+    targetable: bool = True      # 是否可被选为目标（部位破坏等场景）
     redirected: bool = False
 
     def to_dict(self) -> dict:
@@ -42,6 +62,7 @@ class ActionSlot:
             "target_slot": self.target_slot,
             "acted": self.acted,
             "cancelled": self.cancelled,
+            "targetable": self.targetable,
         }
 
     @staticmethod
@@ -56,6 +77,7 @@ class ActionSlot:
         s.target_slot = int(d.get("target_slot", -1))
         s.acted = bool(d.get("acted", False))
         s.cancelled = bool(d.get("cancelled", False))
+        s.targetable = bool(d.get("targetable", True))
         return s
 
 
@@ -83,10 +105,14 @@ class Unit:
     passive_effects: list = field(default_factory=list)
     kind: str = "identity"  # identity | boss | phantom
     time_type: str = ""     # 幻影所属时间类型
+    targetable: bool = True  # 是否可被选为目标（部位 / 离场单位）
+    has_sanity: bool = True  # 无 SP 单位（Abnormality）：硬币永远 50% 正面，Sinking 改为 Gloom 伤害
     tags: list = field(default_factory=list)
     alive: bool = True
+    shield: int = 0
     staggered: bool = False
     stagger_index: int = 0
+    stagger_level: int = 0   # 1=Stagger(+1) / 2=Stagger+(+1.5) / 3=Stagger++(+2)
     target_of_turn: bool = False  # 本回合是否被作为主要目标（幻影回补判定）
     ego_used_this_turn: bool = False
     resist_override: dict = field(default_factory=dict)
@@ -161,13 +187,8 @@ class Unit:
                 lvl += spec.offense_level_per_count * max(st.count, st.potency)
         return lvl
 
-    def resistance(self, dtype: DamageType, sin: Sin) -> float:
-        """物理抗性 × 罪孽抗性。
-
-        E.G.O 使用后的罪孽抗性覆盖：``resist_override = {"_all_from_sin": "gloom"}``
-        表示「本回合内所有罪孽伤害都按该 E.G.O 属性的抗性结算」。
-        """
-        base = self.resistances.get(dtype, 1.0)
+    def resistance_value(self, sin: Sin) -> float:
+        """罪孽抗性的原始倍率（E.G.O 抗性覆盖会替换它）。"""
         sr = self.sin_resistances.get(sin, 1.0)
         if self.resist_override:
             if "_all_from_sin" in self.resist_override:
@@ -179,25 +200,40 @@ class Unit:
                 sr = self.sin_resistances.get(src_sin, 1.0)
             else:
                 sr = self.resist_override.get(sin, sr)
-        return base * sr
+        return sr
+
+    def resistance_value_type(self, dtype: DamageType) -> float:
+        return self.resistances.get(dtype, 1.0)
+
+    def resistance(self, dtype: DamageType, sin: Sin) -> float:
+        """兼容旧接口：物理 × 罪孽 的乘积（仅用于展示；伤害公式用分段函数）。"""
+        return self.resistance_value_type(dtype) * self.resistance_value(sin)
 
     def damage_taken_mult(self) -> float:
-        mult = 1.0
+        """兼容旧接口：受到伤害倍率（= 1 + 动态修正）。"""
+        return 1.0 + self.dynamic_damage_taken()
+
+    def dynamic_damage_taken(self) -> float:
+        """受到伤害的**动态修正**（加法口径，见 Damage Formula）。"""
+        total = 0.0
         for key, st in self.statuses.items():
             spec = status_spec(key)
             if spec.damage_taken_mult_per_count:
-                mult += spec.damage_taken_mult_per_count * st.count
+                total += spec.damage_taken_mult_per_count * st.count
             if spec.damage_taken_mult_per_potency:
-                mult += spec.damage_taken_mult_per_potency * st.potency
-        return mult
+                total += spec.damage_taken_mult_per_potency * st.potency
+        return total
 
     def damage_dealt_mult(self) -> float:
-        mult = 1.0
+        return 1.0 + self.dynamic_damage_dealt()
+
+    def dynamic_damage_dealt(self) -> float:
+        total = 0.0
         for key, st in self.statuses.items():
             spec = status_spec(key)
             if spec.damage_dealt_mult_per_count:
-                mult += spec.damage_dealt_mult_per_count * max(st.count, st.potency)
-        return mult
+                total += spec.damage_dealt_mult_per_count * max(st.count, st.potency)
+        return total
 
     # ---------------------------------------------------------------- 序列化
     def to_dict(self) -> dict:
@@ -214,9 +250,13 @@ class Unit:
             "stagger_index": self.stagger_index,
             "staggered": self.staggered,
             "alive": self.alive,
+            "shield": self.shield,
             "identity": self.identity,
             "kind": self.kind,
             "time_type": self.time_type,
+            "targetable": self.targetable,
+            "has_sanity": self.has_sanity,
+            "stagger_level": self.stagger_level,
             "statuses": {k: v.to_dict() for k, v in sorted(self.statuses.items())},
             "res": {k: v for k, v in sorted(self.res.items())},
             "state": {k: v for k, v in sorted(self.state.items())},
@@ -237,17 +277,21 @@ class Unit:
         u.stagger_index = self.stagger_index
         u.staggered = self.staggered
         u.alive = self.alive
+        u.shield = self.shield
         u.resistances = dict(self.resistances)
         u.sin_resistances = dict(self.sin_resistances)
         u.statuses = {k: v.copy() for k, v in self.statuses.items()}
         u.slots = [ActionSlot.from_dict(s.to_dict()) for s in self.slots]
         u.identity = self.identity
         u.ego_ids = list(self.ego_ids)
-        u.res = dict(self.res)
-        u.state = {k: (list(v) if isinstance(v, list) else v) for k, v in self.state.items()}
+        u.res = _deep(self.res)
+        u.state = _deep(self.state)
         u.passive_effects = list(self.passive_effects)
         u.kind = self.kind
         u.time_type = self.time_type
+        u.targetable = self.targetable
+        u.has_sanity = self.has_sanity
+        u.stagger_level = self.stagger_level
         u.tags = list(self.tags)
         u.target_of_turn = self.target_of_turn
         u.ego_used_this_turn = self.ego_used_this_turn

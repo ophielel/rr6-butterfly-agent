@@ -19,6 +19,7 @@ from ..core.enums import DamageType, Side, Sin
 from ..core.skill import Coin, Ego, Skill
 from ..core.status import StatusRegistry, StatusSpec
 from ..core.unit import ActionSlot, Unit, set_status_registry
+from . import mechanics  # noqa: F401  （注册实验专用 handler）
 
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))), "data")
@@ -40,7 +41,10 @@ def _normalize_skill_dict(d: dict) -> dict:
 
 
 def _parse_skill(d: dict) -> Skill:
-    return Skill.from_dict(_normalize_skill_dict(d))
+    d = _normalize_skill_dict(d)
+    if "hp_threshold_coin_effects" in d:
+        d["coin_thresholds"] = list(d["hp_threshold_coin_effects"])
+    return Skill.from_dict(d)
 
 
 @dataclass
@@ -54,7 +58,8 @@ class IdentityDef:
     defense_level: int
     speed_range: tuple
     slots: int
-    deck: list
+    deck: list                # 展开后的技能牌堆（按声明顺序，用于 fixed 模式）
+    deck_counts: dict         # {sid: 份数}，真实规则是 3/2/1
     guard: str
     egos: list
     resources: dict
@@ -117,6 +122,10 @@ class Content:
                 self.skills[sk.sid] = sk
             guard = _parse_skill(_find_raw(rec, rec["guard"]))
             self.skills[guard.sid] = guard
+            deck_counts = _parse_deck(rec.get("deck", []))
+            deck_cards = []
+            for sid, n in deck_counts.items():
+                deck_cards.extend([sid] * int(n))
             self.identities[rec["key"]] = IdentityDef(
                 key=rec["key"],
                 name=rec["name"],
@@ -127,7 +136,8 @@ class Content:
                 defense_level=int(rec.get("defense_level", 50)),
                 speed_range=tuple(rec.get("speed_range", [3, 7])),
                 slots=int(rec.get("slots", 1)),
-                deck=list(rec.get("deck", [])),
+                    deck=deck_cards,
+                deck_counts=deck_counts,
                 guard=guard.sid,
                 egos=list(rec.get("egos", [])),
                 resources=dict(rec.get("resources", {})),
@@ -201,6 +211,9 @@ class Content:
 
     def make_enemy(self, d: dict, config: SimConfig, hp_override: Optional[int] = None) -> Unit:
         hp = int(hp_override if hp_override is not None else d.get("hp", 1000))
+        if hp_override is None and d.get("hpgrowth") is not None:
+            # 真实规则：hp = base_hp + hpgrowth × level（wiki.gg 的 ABPage 写法）
+            hp = int(float(d.get("hp", 0)) + float(d["hpgrowth"]) * int(d.get("level", 1)))
         u = Unit(
             uid=d["uid"],
             name=d.get("name", d["uid"]),
@@ -214,6 +227,10 @@ class Content:
         )
         u.kind = d.get("kind", "enemy")
         u.time_type = d.get("time_type", "")
+        u.has_sanity = bool(d.get("has_sanity", True))
+        u.shield = int(d.get("shield", 0))
+        if d.get("defense_level_mod"):
+            u.defense_level += int(d["defense_level_mod"])
         if "stagger_thresholds_pct" in d:
             u.stagger_thresholds = [int(hp * p) for p in d["stagger_thresholds_pct"]]
         else:
@@ -225,6 +242,8 @@ class Content:
         if "stack_thresholds_pct" in d:
             u.state["stack_thresholds"] = [int(hp * p) for p in d["stack_thresholds_pct"]]
         u.state["skill_pool"] = list(d.get("skill_pool", []))
+        for key, val in (d.get("state") or {}).items():
+            u.state.setdefault(key, val)
         u.state["skill_script"] = list(d.get("skill_script", d.get("skill_pool", [])))
         u.state["target_mode"] = d.get("target_mode", "first")
         u.tags = list(d.get("tags", []))
@@ -236,6 +255,8 @@ class Content:
             effects.append(e)
         u.passive_effects = effects
         u.state["on_hp_threshold_effects"] = list(d.get("on_hp_threshold_effects", []))
+        if d.get("skill_rotations"):
+            u.state["skill_rotations"] = dict(d["skill_rotations"])
         u.slots = [ActionSlot(index=i) for i in range(int(d.get("slots", 1)))]
         return u
 
@@ -273,6 +294,22 @@ class Content:
                 u.add_status(key, potency=int(val[0]), count=int(val[1]))
         boss.state["form"] = buffs.get("initial_form", "neutral")
         return allies, enemies
+
+
+def _parse_deck(raw) -> dict:
+    """技能牌堆：支持 ``{"yi_s1": 3, "yi_s2": 2, "yi_s3": 1}`` 或 ``[sid, sid, ...]``。
+
+    真实规则（wiki.gg/Battles）：牌堆里每个技能有一定份数，
+    典型为 S1 × 3 / S2 × 2 / S3 × 1，**抽完才重新洗牌**。
+    """
+    counts: dict = {}
+    if isinstance(raw, dict):
+        for sid, n in raw.items():
+            counts[sid] = int(n)
+    else:
+        for sid in raw or []:
+            counts[sid] = counts.get(sid, 0) + 1
+    return counts
 
 
 def _find_raw(rec: dict, sid: str) -> dict:

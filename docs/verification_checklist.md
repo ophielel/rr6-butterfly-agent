@@ -1,84 +1,103 @@
-# 待校验清单（游戏内 / 录像对照）
+# 待校验清单 / 置信度台账
 
-> 计划书 §18：**模拟器验证比训练更重要。** 这份清单里每一条都对应
-> 一个已经写好的测试或一个已有实现口径；校验完成后请把结论补到
-> `data/*.json` 的 `confidence` 字段和 `docs/mechanics_notes.md`。
+> 审计与修复过程见 `docs/audit_report.md`；实现口径见 `docs/mechanics_notes.md`。
+>
+> 勾选方式：`[x]` 已在 wiki.gg 页面原文确认；`[~]` 部分确认；`[ ]` 未确认（需游戏内或录像复核）。
 
-勾选方式：`[x]` 已在游戏内确认；`[~]` 部分确认/存疑；`[ ]` 未校验。
+## A. 已 verified（有 wiki.gg 原文支撑，实现与文本一致）
 
-## A. 拼点
+### A1. Sinking / Butterfly / SP
+- [x] 精神力公式 `H = 50 + SP`（%），SP ∈ [−45, 45]
+- [x] 沉沦：命中时失去等同强度的 SP、层数 −1；上限 99/99
+- [x] **无 SP 单位（Abnormality）受到沉沦 → 等强度 Gloom 伤害**（忽略物理抗性，受罪孽抗性影响）
+- [x] 蝶：Potency = The Living / Count = The Departed；上限 15
+- [x] 蝶：命中时**攻击者**回复 (Living/4) SP（min 1）
+- [x] 蝶：自身 SP<0 时，每个 Departed 造成 (Sinking Potency/5) Gloom 伤害（上限 30）
+- [x] 蝶：回合结束 Departed→0 → 获得等同 Living 的 Sinking → Living→Departed
+- [x] 「施加蝶时有概率变成 The Departed，否则 The Living」按**每层独立**判定
 
-- [ ] 拼点是否「双方每轮各消耗一枚硬币」（`clash_model=advance`）
-      → 测试：`tests/unit/test_damage.py::TestClash`
-- [ ] 拼点平手是否双方硬币一起破坏
-- [ ] 拼点胜利方是否用**全部剩余硬币**攻击（含已翻出的硬币）
-- [ ] 已翻出硬币的正反面是否沿用到伤害阶段（`clash_coin_carryover`）
-- [ ] 拼点胜利是否 +1 SP / 失败是否 -SP（`clash_win_sp_gain` / `clash_lose_sp_loss`）
-- [ ] 攻击等级差是否影响拼点威力（当前默认 **不影响**：`clash_level_bonus_per_3=0`）
+### A2. 伤害 / 拼点 / 混乱（`Damage Formula` + `Battles`）
+- [x] `Final = Coin Roll × (1 + Static) × (1 + Dynamic)`，Coin Roll = 硬币 Final Power
+- [x] 抗性分段函数（Immune 实际吃半伤；Ineff. 实际 −25%）
+- [x] 攻防等级 `M = (Off − Def)/(|Off − Def| + 25)`
+- [x] 拼点：高等级方每 3 级差 +1 拼点威力（向下取整）
+- [x] 混乱：物理抗性被替换为 `Stagger Level × 0.5 + 0.5`，与已有弱点取较高者
+- [x] 混乱持续「本回合剩余 + 下一回合」，混乱期间无法行动
+- [x] 伤害向下取整、最低 1、不低于 `0.05 × Coin Roll`
+- [x] Unbreakable Coin：拼点失败不破坏 → Cracked（威望固定 +1/−1），失败后仍会结算
+- [x] `Clash Count × 0.03` 属于静态修正
 
-## B. 伤害
+### A3. E.G.O
+- [x] `Category:E.G.O with Coin Reuse` 成员：Harmony Sinclair / Magic Bullet Outis /
+      Solemn Lament Gregor / Tears of the Tarnished Blood Sinclair / Unbrilliant Glory Gregor /
+      Wingbeat Ishmael
+- [x] Gregor 庄严哀悼：第 3 枚硬币 `[On Hit] At 0+ SP, Reuse this Coin (5 times max per Skill)`，-2~6 SP/次
+- [x] Harmony 和声：第 3 枚 `[Heads Hit] At 10%+ HP, take 4~8 HP → Reuse (4 times/Skill)`
+- [x] **李箱庄严哀悼没有 Coin Reuse**：5 枚 Unbreakable 硬币 + 蝶结算
+- [x] E.G.O 不因 SP 不足而不可用；「SP 消耗后 ≤ −45」必定侵蚀
+- [x] Overclock = 1.5× 代价换「去掉 Indiscriminate 的侵蚀技能」
+- [x] 同一回合同一 E.G.O 不能用两次
+- [x] 6 个实验用 E.G.O 的 SP 消耗 / 罪孽抗性表 / 基础技能数据（spower、cpower、coin 数、atkmod）
 
-- [ ] `(1 + 0.03 × 攻防等级差)` 是否为游戏口径
-- [ ] 硬币威力是否计入该硬币伤害（`coin_power_adds_damage`）
-- [ ] 混乱（气绝）倍率是否为 ×1.5，是否持续「本回合剩余 + 下一回合」
-- [ ] 守备减伤是否为 ×0.5
-- [ ] 幻影 → 本体的伤害转移是否 100%（`phantom_damage_transfer`）
+### A4. 牌堆 / Imago
+- [x] 技能牌堆：S1 × 3 / S2 × 2 / S3 × 1，**抽完才洗牌**
+- [x] Imago HP = 9090 + 275.44 × 60 = 25616；level 60；speed 1~3；defmod +0
+- [x] Imago 混乱阈值 85/65/40/10（%）
+- [x] Imago 抗性表（wrath/lust/pride 1.25，sloth/gluttony 0.75，gloom/envy 1.0）
+- [x] Imago 12 个技能的基础数据
+- [x] Imago `Moment of Entangled Lives`：激活最高栈的时间状态；**幻影被作为主要目标攻击时本体失去对应栈**
+- [x] Imago `三世因果`：开战三栈各 10；HP 首次 <66%/<33% 时三栈各 +10
+- [x] Imago 三回合技能循环（按状态 + HP 阶段）
+- [x] 三幻影蝶：hp=1 + 333 Shield、E.G.O 受伤 +100%、Eclosion（0 伤害 Unclashable）
+- [x] Line 6 Section 5 = Station 8「Advent」；开局继承 Section 1 的 HP%/SP；Chain Battle + Backup
+- [x] 第 4 回合开头的 Choice Event（Sunset Wayfarer's Sap A5 / Moth B5）
 
-## C. 状态时点
+## B. 已实现但数值/口径待复核（low / medium）
 
-- [ ] 沉沦：命中时失去等同强度的 SP、层数 -1、**强度会累积**
-      → 测试：`test_statuses.py::TestSinking`
-- [ ] 同一枚硬币上「先施加沉沦 → 再触发」是否符合游戏（当前实现是先施加后触发）
-- [ ] 「蝶」的伤害构成（当前：SP 伤害 = 强度 + HP 伤害 = 强度）
-      → 测试：`test_statuses.py::TestButterflyStatus`
-- [ ] 亡蝶的实际效果（当前：命中时按强度追加 HP 伤害）
-- [ ] 山庄的回响（当前：回合结束失去 层数×2 的 SP）
-- [ ] 破裂 / 出血 / 燃烧 的触发时点与层数减少规则
-- [ ] 脆弱 / 时隙 / 眩惑 / 影之龟裂 每层 +5% 受到伤害是否合理
-- [ ] 状态是否需要在回合结束衰减（当前只有 `timegap` 每回合 -1 层）
+- [ ] 侵蚀概率曲线：界面百分比是逐 E.G.O 的，当前用 `|SP|/45 × corrosion_chance_at_min_sp × 2` 近似
+- [ ] 拼点胜利 +1 SP / 失败 ±0（wiki 只说「赢拼点涨 SP」，具体值未找到）
+- [ ] 混乱时「伤害类型抗性替换」是否也影响罪孽抗性（当前只替换物理）
+- [ ] `Chaotic Turmoil` 的 reuse 分档：「once for every 33% missing HP (max 2 times)」
+      当前近似为「HP<100% 时最多 2 次」
+- [ ] Burn / Bleed 的触发与层数消耗口径
+- [ ] `Immolation` / `Kalpāgni` / `Skypiercer` / `Smite the Wicked` / `Bloodflower` 的
+      「按 In the Past/Present/Future 栈提升伤害」当前标为 `not_implemented`
+- [ ] 幻想蝶在 Section 5 的版本数据（页面用的 id 9564~9566 是 Section 2~4 版本；
+      Section 5 波次为 9572~9574）
 
-## D. E.G.O
+## C. 尚未实现（数据里已标 `not_implemented`，并计入 `counters["not_implemented"]`）
 
-- [ ] 觉醒 / 侵蚀的 SP 消耗数值与差异
-      → 测试：`test_ego.py::TestEgoBasics`
-- [ ] 「使用 E.G.O 后本回合罪孽抗性被该 E.G.O 属性覆盖」的实现口径
-      （当前：`resist_override = {"_all_from_sin": <ego.sin>}`）
-- [ ] **庄严哀悼 / 和声 的重复投掷触发条件**（本次实验核心！）
-      当前：目标每 10 级沉沦强度重复 1 次，最多 2 次
-      → 测试：`test_ego.py::TestRepeatCoin`
-- [ ] 重复投掷是否重新触发 [命中时] 效果（当前：是）
-- [ ] 重复投掷是否还能再触发重复投掷（当前：不能，防递归）
+- [ ] **Poise / 暴击（Crit 静态修正）**
+- [ ] 随机硬币目标（Gregor 庄严哀悼的 `Unfocused Volley`）
+- [ ] 攻击权重 / 子目标 / 部位破坏（Severable Parts）
+- [ ] Burn/Bleed 的「激活」类文本效果（如 `Activate Burn on target once`）
+- [ ] Scale Dust（Incandescent / Acuate / Rusted）
+- [ ] Temporal Disjunction / Wrath Fragility / HP Healing Down / Gloom Resist Down
+- [ ] Rhythm（和声）、The Uninvited 的伤害加成、Sheut Fracture 满层爆发、Blue Sand 触发
+- [ ] Panic / Low Morale（−30 低士气、−45 恐慌、E.G.O Corrosion 融合状态）
+- [ ] Attack End 的 SP 回复/治疗（和声、Gregor 庄严哀悼的 `#hits × 3`）
+- [ ] 和声的 `Combat End: lose 8 SP for 2 turns`
+- [ ] E.G.O 侵蚀形态的完整效果文本（当前只有基础数据，效果标 low）
+- [ ] Rest/Evade/Counter 防御技能；当前守备被简化为「不拼点 + 受伤 ×0.5」
+- [ ] Focused Encounter 的改目标规则（真实规则：被指定的 Sinner 可无视速度反向锁定）
+- [ ] Chain Battle / Backup Sinner / 撤退
+- [ ] Section 5 第 4 回合的 Choice Event 效果（当前只作为 config 说明）
 
-## E. 罗生蝶
+## D. synthetic（实验人造，**不是游戏规则**）
 
-- [ ] 本体 HP 25616、4 个混乱阈值
-- [ ] 三套状态栈的初始值（当前 2/2/2）与上限
-- [ ] 攻击幻影「每枚硬币减对应栈 1 层」是否正确
-      → 测试：`test_butterfly_boss.py::TestPhantomStacks`
-- [ ] 幻影未被作为主要目标时回补的层数与判定口径
-      → 测试：`test_butterfly_boss.py::TestPhantomRestore`
-- [ ] 形态判定是否「取最高栈」，并列时是否保持当前形态
-- [ ] 形态切换获得的收益（当前：本体自己获得「时隙」易伤 +5%/层）
-- [ ] 本体 HP 阈值补充三套栈的数量（当前 +2）
-- [ ] 幻影的技能组、速度、HP（当前 2000 × scale，1 槽）
-- [ ] Boss 每回合 +8 SP 的回复（为了不让沉沦一回合锁死，属于**自造平衡项**）
+- [ ] `data/identities.json`：7 个人格的技能数值是**占位数据**，尚未按 wiki 人格页录入
+- [ ] `boss_hp_scale`（默认 0.5）：wiki 真实 HP 是 25616（= 1.0）
+- [ ] `encounter_buffs`：第五区段事件增益的注入口
+- [ ] `corrosion_chance_at_min_sp`、`sinking_vs_no_sp_deals_gloom_damage`（消融）、
+      `coin_reuse_enabled`（消融）
+- [ ] `clash_model="reflex"`：synthetic 的拼点模型 B（真实模型尚未完全确认，默认用 advance）
+- [ ] `Coin.damage`：attack adder，默认 0；真实伤害来自 Coin Roll
 
-## F. 结构（必须保持的自造简化）
+## E. 当前 benchmark 的地位（重要）
 
-这些是本实验刻意简化的地方，**不是 Bug**：
-
-- 只有 7 名固定人格、各 1 个行动槽；不做换人、替补、镜牢饰品。
-- 罪孽资源无限（`sin_resources=infinite`），但 SP / 侵蚀 / 抗性覆盖全部保留。
-- 没有守备技能参与拼点的分支（守备 = 本回合减伤 ×0.5，不拼点）。
-- 不做第一段到第五段的真实状态继承，第五段开局状态由配置注入。
-- `boss_hp_scale` 默认 0.5（wiki 值是 1.0），见 `docs/mechanics_notes.md` §7。
-- 敌方 AI 是脚本/贪心，不是学习型对手。
-
-## G. 数值平衡待办（影响实验说服力）
-
-- [ ] 消融 F（关闭沉沦触发）目前差距不够大：需要把 Boss 的威胁调高，
-      让「沉沦 → 本体 SP 下降 → 拼点全反面 → 攻击被抵消」成为**生存必需**。
-- [ ] 消融 A3（禁用和声）目前被手写轴的兜底技能掩盖，需要重写手写轴，
-      让它更依赖和声，才能体现差异。
-- [ ] 幻影与状态栈的互动目前对总伤害影响偏小（`phantom_stack_decay` 只有 1/硬币），
-      校验真实数值后再调。
+* 用**真实机制 + synthetic 人格数据**跑出来的结果**不能**支持任何「策略最优性」结论。
+* `scripts/manual_line.py` 只作为 **known-strategy regression test**：
+  它检查「沉沦会建立 / Coin Reuse 会发生 / 多次命中会重复触发状态 / replay 记录 / 消融生效」，
+  并**明确接受**「Greedy 更强」这个结果。
+* 在放行 Beam/MCTS 之前必须先完成：人格数据录入（§D 第 1 条）、
+  以及 §C 中会影响伤害量级的项（Poise/暴击、按栈加成伤害、Burn/Bleed）。

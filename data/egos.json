@@ -1,10 +1,26 @@
 {
   "_meta": {
-    "purpose": "本实验涉及的 E.G.O（觉醒 / 侵蚀两套形态 + 使用后罪孽抗性覆盖）。",
+    "purpose": "本实验涉及的 6 个 E.G.O，按 limbuscompany.wiki.gg 的页面原文重录（觉醒 / 侵蚀 + 使用后罪孽抗性覆盖）。",
     "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
-    "wiki_accessible": false,
-    "note": "「庄严哀悼」与「和声」的重复硬币条件是本次实验的核心；具体触发阈值必须对照游戏内文本校验。",
-    "resist_override_format": "{\"_all_from_sin\": \"gloom\"} 表示使用后本回合内所有罪孽伤害按忧郁抗性结算。"
+    "evidence": [
+      "https://limbuscompany.wiki.gg/wiki/Solemn Lament Yi Sang",
+      "https://limbuscompany.wiki.gg/wiki/Solemn Lament Gregor",
+      "https://limbuscompany.wiki.gg/wiki/Harmony Sinclair",
+      "https://limbuscompany.wiki.gg/wiki/Bygone Days Yi Sang",
+      "https://limbuscompany.wiki.gg/wiki/Bygone Days Ishmael",
+      "https://limbuscompany.wiki.gg/wiki/Rime Shank Rodion",
+      "https://limbuscompany.wiki.gg/wiki/E.G.O/Gameplay",
+      "https://limbuscompany.wiki.gg/wiki/Category:E.G.O with Coin Reuse"
+    ],
+    "cost_semantics": "sp_cost = 觉醒 SP 消耗（wiki 的 asanity）；corrosion_sp_cost = 侵蚀技能 SP 消耗（wiki 的 csanity）；Overclock = ceil(1.5 × sp_cost)，使用侵蚀技能但去掉 Indiscriminate（见 core/engine.plan_ego_use）。",
+    "resist_override_format": "{sin: 倍率}，用游戏用词映射：Ineff=0.5 / Endure=0.75 / Normal=1.0 / Weak=1.5 / Fatal=2.0。使用后本回合内所有罪孽伤害按此表结算。",
+    "coin_reuse": "只有 Gregor 庄严哀悼与 Sinclair 和声带 Coin Reuse（Category:E.G.O with Coin Reuse 成员）。李箱庄严哀悼**没有** Coin Reuse。",
+    "not_implemented": [
+      "随机硬币目标（Gregor 庄严哀悼：每枚硬币随机选择目标）",
+      "Gloom Resonance 相关数值（李箱庄严哀悼 Before Attack / Bygone Days 的施加量）",
+      "Attack End 的回 SP / 治疗结算（和声、Gregor 庄严哀悼）",
+      "Trigger Tremor Burst / Rhythm / Bind 的实际效果"
+    ]
   },
   "egos": [
     {
@@ -13,232 +29,77 @@
       "owner": "solemn_yisang",
       "grade": "HE",
       "sin": "gloom",
-      "sp_cost": 25,
-      "corrosion_sp_cost": 35,
-      "resist_override": {
-        "_all_from_sin": "gloom"
-      },
+      "sp_cost": 20,
+      "corrosion_sp_cost": 25,
+      "no_coin_reuse": true,
+      "resist_override": {"wrath": 1.0, "lust": 1.0, "sloth": 0.75, "gluttony": 2.0,
+                          "gloom": 0.5, "pride": 1.0, "envy": 2.0},
       "awakening": {
         "sid": "ego_solemn_lament_yisang",
         "name": "庄严哀悼（觉醒）",
         "sin": "gloom",
-        "damage_type": "blunt",
+        "damage_type": "pierce",
         "base_power": 6,
-        "coin_count": 4,
-        "coin": {
-          "kind": "positive",
-          "power": 5,
-          "damage": 30,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "dead_butterfly",
-              "potency": 2,
-              "count": 2,
-              "target": "other"
-            },
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 2,
-              "count": 1,
-              "target": "other"
-            }
-          ]
-        },
-        "effects": [
-          {
-            "when": "on_use",
-            "kind": "sum_status",
-            "of": [
-              {
-                "key": "sinking",
-                "field": "potency",
-                "who": "other"
-              }
-            ],
-            "per": 10,
-            "max": 2,
-            "then": [
-              {
-                "kind": "repeat_coin",
-                "times": 1,
-                "all_coins": true
-              }
-            ]
-          }
+        "coin_count": 5,
+        "coin_power": 3,
+        "offense_level_mod": 4,
+        "atkweight": 3,
+        "coins": [
+          {"kind": "positive", "power": 3, "damage": 0, "unbreakable": true, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 1, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "count": 1, "target": "other"}]},
+          {"kind": "positive", "power": 3, "damage": 0, "unbreakable": true, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 2, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "count": 1, "target": "other"}]},
+          {"kind": "positive", "power": 3, "damage": 0, "unbreakable": true, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 2, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "count": 1, "target": "other"}]},
+          {"kind": "positive", "power": 3, "damage": 0, "unbreakable": true, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 3, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "count": 1, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "gloom_fragility", "count": 1, "target": "other"},
+            {"when": "on_hit", "kind": "not_implemented", "name": "gloom_resist_down",
+             "note": "Inflict 1 Gloom Resist Down, this turn and next turn"}]},
+          {"kind": "positive", "power": 3, "damage": 0, "unbreakable": true, "effects": [
+            {"when": "on_hit", "kind": "spend_living_departed_burst", "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "potency": 3, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "tremor", "potency": 3, "target": "other"},
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 2, "target": "other", "note": "The Living"},
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 2, "target": "other", "note": "The Departed"},
+            {"when": "on_hit", "kind": "not_implemented", "name": "tremor_burst",
+             "note": "Trigger Tremor Burst; then reduce target's Tremor Count by 1"}]}
         ],
-        "owner": "solemn_yisang",
-        "description": "[使用时] 目标每有 3 级沉沦强度，此技能所有硬币重复投掷 1 次（最多 2 次）。",
-        "confidence": "low"
+        "effects": [
+          {"when": "before_attack", "kind": "not_implemented", "name": "gloom_resonance_butterfly",
+           "note": "Gain a random assortment of (Gloom Reson. + 1) The Living & The Departed (max 7)"},
+          {"when": "on_use", "kind": "not_implemented", "name": "unfocused_volley",
+           "note": "Unfocused Volley：硬币分别随机选择目标"},
+          {"when": "attack_end", "kind": "not_implemented", "name": "reload",
+           "note": "Reload (Solemn Lament)"}
+        ],
+        "description": "5 枚 Unbreakable 硬币；每枚施加蝶与 Sinking Count；第 5 枚花光 The Living & The Departed 并按蝶总量结算 Gloom 伤害。**没有 Coin Reuse。**",
+        "confidence": "verified"
       },
       "corrosion": {
         "sid": "ego_solemn_lament_yisang_c",
         "name": "庄严哀悼（侵蚀）",
         "sin": "gloom",
-        "damage_type": "blunt",
-        "base_power": 8,
-        "coin_count": 4,
-        "coin": {
-          "kind": "positive",
-          "power": 5,
-          "damage": 34,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "dead_butterfly",
-              "potency": 3,
-              "count": 2,
-              "target": "other"
-            },
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 3,
-              "count": 1,
-              "target": "other"
-            }
-          ]
-        },
-        "effects": [
-          {
-            "when": "on_use",
-            "kind": "sum_status",
-            "of": [
-              {
-                "key": "sinking",
-                "field": "potency",
-                "who": "other"
-              }
-            ],
-            "per": 10,
-            "max": 2,
-            "then": [
-              {
-                "kind": "repeat_coin",
-                "times": 1,
-                "all_coins": true
-              }
-            ]
-          }
-        ],
-        "owner": "solemn_yisang",
-        "confidence": "low"
-      },
-      "description": "亡蝶葬仪系 E.G.O。沉沦强度越高，硬币重复投掷次数越多。",
-      "source": "https://limbuscompany.huijiwiki.com/wiki/庄严哀悼-李箱",
-      "confidence": "low"
-    },
-    {
-      "eid": "yesteryear_yisang",
-      "name": "往昔",
-      "owner": "solemn_yisang",
-      "grade": "TETH",
-      "sin": "sloth",
-      "sp_cost": 15,
-      "corrosion_sp_cost": 22,
-      "resist_override": {
-        "_all_from_sin": "sloth"
-      },
-      "awakening": {
-        "sid": "ego_yesteryear_yisang",
-        "name": "往昔（觉醒）",
-        "sin": "sloth",
-        "damage_type": "slash",
-        "base_power": 5,
-        "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 24,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 2,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
-        "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "status": {
-                "key": "sinking",
-                "who": "other",
-                "potency_gte": 3
-              }
-            },
-            "then": [
-              {
-                "kind": "add_status",
-                "key": "fragile",
-                "count": 2,
-                "target": "other"
-              }
-            ]
-          }
-        ],
-        "owner": "solemn_yisang",
-        "confidence": "low"
-      },
-      "corrosion": {
-        "sid": "ego_yesteryear_yisang_c",
-        "name": "往昔（侵蚀）",
-        "sin": "sloth",
-        "damage_type": "slash",
+        "damage_type": "pierce",
         "base_power": 6,
-        "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 28,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 3,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
+        "coin_count": 5,
+        "coin_power": 2,
+        "offense_level_mod": 4,
+        "atkweight": 3,
         "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "status": {
-                "key": "sinking",
-                "who": "other",
-                "potency_gte": 3
-              }
-            },
-            "then": [
-              {
-                "kind": "add_status",
-                "key": "fragile",
-                "count": 2,
-                "target": "other"
-              }
-            ]
-          }
+          {"when": "on_use", "kind": "not_implemented", "name": "corrosion_variant",
+           "note": "侵蚀形态的具体文本待补录（Threadspin 3 之外未抓取）"}
         ],
-        "owner": "solemn_yisang",
         "confidence": "low"
       },
-      "source": "https://limbuscompany.huijiwiki.com/wiki/往昔-李箱",
-      "confidence": "low"
+      "source": "https://limbuscompany.wiki.gg/wiki/Solemn Lament Yi Sang",
+      "confidence": "verified"
     },
+
     {
       "eid": "solemn_lament_gregor",
       "name": "庄严哀悼",
@@ -246,421 +107,292 @@
       "grade": "HE",
       "sin": "gloom",
       "sp_cost": 25,
-      "corrosion_sp_cost": 35,
-      "resist_override": {
-        "_all_from_sin": "gloom"
-      },
+      "corrosion_sp_cost": 30,
+      "coin_reuse": {"coin": "last", "max_reuse": 5, "condition": "SP >= 0"},
+      "resist_override": {"wrath": 2.0, "lust": 1.0, "sloth": 1.0, "gluttony": 2.0,
+                          "gloom": 0.75, "pride": 1.0, "envy": 0.5},
       "awakening": {
         "sid": "ego_solemn_lament_gregor",
         "name": "庄严哀悼（觉醒）",
         "sin": "gloom",
-        "damage_type": "pierce",
-        "base_power": 6,
+        "damage_type": "blunt",
+        "base_power": 8,
         "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 5,
-          "damage": 30,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "butterfly",
-              "potency": 2,
-              "count": 3,
-              "target": "other"
-            },
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 1,
-              "count": 1,
-              "target": "other"
-            }
-          ]
-        },
-        "effects": [
-          {
-            "when": "on_use",
-            "kind": "sum_status",
-            "of": [
-              {
-                "key": "sinking",
-                "field": "potency",
-                "who": "other"
-              }
-            ],
-            "per": 10,
-            "max": 2,
-            "then": [
-              {
-                "kind": "repeat_coin",
-                "times": 1,
-                "all_coins": true
-              }
-            ]
-          }
+        "coin_power": 2,
+        "offense_level_mod": 2,
+        "atkweight": 3,
+        "coins": [
+          {"kind": "positive", "power": 2, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 1, "target": "other"}]},
+          {"kind": "positive", "power": 2, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount": 1, "target": "other"}]},
+          {"kind": "positive", "power": 2, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "inflict_butterfly", "amount_random": [1, 2], "target": "other"},
+            {"when": "on_hit", "kind": "lose_sp", "amount_random": [2, 6], "target": "self", "counter": "ego_sp_cost"},
+            {"when": "on_hit", "kind": "reuse_coin", "coin": "current", "max_reuse": 5,
+             "if": {"sp": {"who": "self", "gte": 0}}, "source": "solemn_lament_gregor"}]}
         ],
-        "owner": "lantern_gregor",
-        "confidence": "low"
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "random_coin_targeting",
+           "note": "每枚硬币随机选择目标（第一枚固定主目标）"},
+          {"when": "attack_end", "kind": "not_implemented", "name": "heal_sp_on_attack_end",
+           "note": "Heal (第 3 枚硬币命中次数 × 3) SP"}
+        ],
+        "description": "3 枚硬币；第 3 枚 [On Hit] 在 SP ≥ 0 时反复 Reuse（每技能最多 5 次），每次命中额外 -2~6 SP。**这才是真实的 Coin Reuse。**",
+        "confidence": "verified"
       },
       "corrosion": {
         "sid": "ego_solemn_lament_gregor_c",
         "name": "庄严哀悼（侵蚀）",
         "sin": "gloom",
-        "damage_type": "pierce",
+        "damage_type": "blunt",
         "base_power": 8,
         "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 5,
-          "damage": 34,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "butterfly",
-              "potency": 3,
-              "count": 3,
-              "target": "other"
-            },
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 2,
-              "count": 1,
-              "target": "other"
-            }
-          ]
-        },
+        "coin_power": 1,
+        "offense_level_mod": 2,
+        "atkweight": 3,
         "effects": [
-          {
-            "when": "on_use",
-            "kind": "sum_status",
-            "of": [
-              {
-                "key": "sinking",
-                "field": "potency",
-                "who": "other"
-              }
-            ],
-            "per": 10,
-            "max": 2,
-            "then": [
-              {
-                "kind": "repeat_coin",
-                "times": 1,
-                "all_coins": true
-              }
-            ]
-          }
+          {"when": "on_use", "kind": "not_implemented", "name": "corrosion_variant",
+           "note": "侵蚀形态（Threadspin 3 版）基础数据已录入，效果文本待补录"}
         ],
-        "owner": "lantern_gregor",
         "confidence": "low"
       },
-      "source": "https://limbuscompany.huijiwiki.com/wiki/庄严哀悼-格里高尔",
-      "confidence": "low"
+      "source": "https://limbuscompany.wiki.gg/wiki/Solemn Lament Gregor",
+      "confidence": "verified"
     },
-    {
-      "eid": "yesteryear_ishmael",
-      "name": "往昔",
-      "owner": "hanafuda_ishmael",
-      "grade": "TETH",
-      "sin": "sloth",
-      "sp_cost": 15,
-      "corrosion_sp_cost": 22,
-      "resist_override": {
-        "_all_from_sin": "sloth"
-      },
-      "awakening": {
-        "sid": "ego_yesteryear_ishmael",
-        "name": "往昔（觉醒）",
-        "sin": "sloth",
-        "damage_type": "pierce",
-        "base_power": 5,
-        "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 24,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 2,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
-        "owner": "hanafuda_ishmael",
-        "confidence": "low"
-      },
-      "corrosion": {
-        "sid": "ego_yesteryear_ishmael_c",
-        "name": "往昔（侵蚀）",
-        "sin": "sloth",
-        "damage_type": "pierce",
-        "base_power": 6,
-        "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 28,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 3,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
-        "owner": "hanafuda_ishmael",
-        "confidence": "low"
-      },
-      "source": "https://limbuscompany.huijiwiki.com/wiki/往昔-以实玛利",
-      "confidence": "low"
-    },
+
     {
       "eid": "harmony_sinclair",
       "name": "和声",
       "owner": "band_sinclair",
       "grade": "HE",
-      "sin": "gloom",
-      "sp_cost": 25,
-      "corrosion_sp_cost": 35,
-      "resist_override": {
-        "_all_from_sin": "gloom"
-      },
+      "sin": "wrath",
+      "sp_cost": 10,
+      "corrosion_sp_cost": 30,
+      "coin_reuse": {"coin": "last", "max_reuse": 4, "condition": "Heads Hit & self HP >= 10%"},
+      "resist_override": {"wrath": 0.5, "lust": 0.75, "sloth": 1.0, "gluttony": 1.0,
+                          "gloom": 2.0, "pride": 2.0, "envy": 1.0},
       "awakening": {
         "sid": "ego_harmony_sinclair",
         "name": "和声（觉醒）",
-        "sin": "gloom",
-        "damage_type": "blunt",
-        "base_power": 7,
+        "sin": "wrath",
+        "damage_type": "slash",
+        "base_power": 6,
         "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 6,
-          "damage": 30,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "fragile",
-              "count": 1,
-              "target": "other"
-            },
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 1,
-              "count": 1,
-              "target": "other"
-            }
-          ]
-        },
-        "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "resource": {
-                "key": "harmony",
-                "who": "self",
-                "gte": 3
-              }
-            },
-            "then": [
-              {
-                "kind": "consume_resource",
-                "key": "harmony",
-                "amount": 3
-              },
-              {
-                "kind": "repeat_coin",
-                "times": 1,
-                "all_coins": true
-              }
-            ]
-          }
+        "coin_power": 2,
+        "offense_level_mod": 2,
+        "atkweight": 3,
+        "coins": [
+          {"kind": "positive", "power": 2, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 2, "target": "other"}]},
+          {"kind": "positive", "power": 2, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "potency": 2, "target": "other"}]},
+          {"kind": "positive", "power": 2, "damage": 0, "effects": [
+            {"when": "heads_hit", "kind": "self_harm", "min": 4, "max": 8,
+             "if": {"hp_pct": {"who": "self", "gte": 0.10}}},
+            {"when": "heads_hit", "kind": "reuse_coin", "coin": "current", "max_reuse": 4,
+             "if": {"hp_pct": {"who": "self", "gte": 0.10}}, "source": "harmony_sinclair"},
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "potency": 1, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 1, "target": "other"},
+            {"when": "on_hit", "kind": "not_implemented", "name": "rhythm",
+             "note": "A random ally gains 1~3 Rhythm next turn (once per Coin)"}]}
         ],
-        "owner": "band_sinclair",
-        "description": "[使用时] 消耗 3 层和声，此技能所有硬币重复投掷 1 次。",
-        "confidence": "low"
+        "effects": [
+          {"when": "on_use", "kind": "modify_clash_power",
+           "amount_from_status": {"keys": ["bleed", "burn"], "who": "other", "per": 2, "max": 10},
+           "if": {"always": true}},
+          {"when": "attack_end", "kind": "not_implemented", "name": "heal_sp_others",
+           "note": "Heal 12 SP for (1 + highest Reson.) other allies with the least SP (max 4 units)"},
+          {"when": "attack_end", "kind": "not_implemented", "name": "combat_end_sp_loss",
+           "note": "For 2 turns, lose 8 SP at Combat End"}
+        ],
+        "description": "3 枚硬币；第 3 枚 [Heads Hit] 且自身 HP ≥ 10% 时自伤 4~8 并 Reuse（每技能最多 4 次）。",
+        "confidence": "verified"
       },
       "corrosion": {
         "sid": "ego_harmony_sinclair_c",
         "name": "和声（侵蚀）",
-        "sin": "gloom",
-        "damage_type": "blunt",
-        "base_power": 9,
+        "sin": "wrath",
+        "damage_type": "slash",
+        "base_power": 6,
         "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 6,
-          "damage": 34,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "fragile",
-              "count": 2,
-              "target": "other"
-            },
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 2,
-              "count": 1,
-              "target": "other"
-            }
-          ]
-        },
+        "coin_power": 2,
+        "offense_level_mod": 2,
+        "atkweight": 3,
         "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "resource": {
-                "key": "harmony",
-                "who": "self",
-                "gte": 3
-              }
-            },
-            "then": [
-              {
-                "kind": "consume_resource",
-                "key": "harmony",
-                "amount": 3
-              },
-              {
-                "kind": "repeat_coin",
-                "times": 1,
-                "all_coins": true
-              }
-            ]
-          }
+          {"when": "on_use", "kind": "not_implemented", "name": "corrosion_variant",
+           "note": "侵蚀形态（Threadspin 3）自伤上限改为 4~8，效果文本待补录"}
         ],
-        "owner": "band_sinclair",
         "confidence": "low"
       },
-      "source": "https://limbuscompany.huijiwiki.com/wiki/和声-辛克莱",
-      "confidence": "low"
+      "source": "https://limbuscompany.wiki.gg/wiki/Harmony Sinclair",
+      "confidence": "verified"
     },
+
     {
-      "eid": "frost_claw_rodion",
+      "eid": "bygone_days_yisang",
+      "name": "往昔",
+      "owner": "solemn_yisang",
+      "grade": "ZAYIN",
+      "sin": "gloom",
+      "sp_cost": 15,
+      "corrosion_sp_cost": 15,
+      "no_coin_reuse": true,
+      "resist_override": {"wrath": 1.0, "lust": 2.0, "sloth": 1.0, "gluttony": 1.0,
+                          "gloom": 0.75, "pride": 2.0, "envy": 1.0},
+      "awakening": {
+        "sid": "ego_bygone_days_yisang",
+        "name": "往昔（觉醒）",
+        "sin": "gloom",
+        "damage_type": "pierce",
+        "base_power": 15,
+        "coin_count": 1,
+        "coin_power": 8,
+        "offense_level_mod": 0,
+        "atkweight": 3,
+        "coins": [
+          {"kind": "positive", "power": 8, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "branch",
+             "branch_if": {"status": {"key": "sinking", "who": "other", "potency_gte": 6}},
+             "then": [{"kind": "add_status", "key": "bind", "count": 2, "target": "other"}]}]}
+        ],
+        "effects": [
+          {"when": "attack_end", "kind": "add_status", "key": "sinking", "potency": 6, "target": "other"},
+          {"when": "attack_end", "kind": "not_implemented", "name": "gloom_resonance_sinking",
+           "note": "Randomly inflict (6 + Gloom Reson. × 1.5) Sinking between targets（当前按固定 6 记录）"}
+        ],
+        "description": "单枚高威力硬币（15+8），Attack End 大量施加沉沦。**没有 Coin Reuse。**",
+        "confidence": "verified"
+      },
+      "corrosion": {
+        "sid": "ego_bygone_days_yisang_c",
+        "name": "往昔（侵蚀）",
+        "sin": "gloom",
+        "damage_type": "pierce",
+        "base_power": 15,
+        "coin_count": 1,
+        "coin_power": 8,
+        "offense_level_mod": 0,
+        "atkweight": 3,
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "corrosion_variant",
+           "note": "侵蚀形态效果文本待补录"}
+        ],
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.wiki.gg/wiki/Bygone Days Yi Sang",
+      "confidence": "verified"
+    },
+
+    {
+      "eid": "bygone_days_ishmael",
+      "name": "往昔",
+      "owner": "hanafuda_ishmael",
+      "grade": "TETH",
+      "sin": "gloom",
+      "sp_cost": 20,
+      "corrosion_sp_cost": 30,
+      "no_coin_reuse": true,
+      "resist_override": {"wrath": 1.0, "lust": 1.0, "sloth": 1.0, "gluttony": 2.0,
+                          "gloom": 0.5, "pride": 1.0, "envy": 2.0},
+      "awakening": {
+        "sid": "ego_bygone_days_ishmael",
+        "name": "往昔（觉醒）",
+        "sin": "gloom",
+        "damage_type": "slash",
+        "base_power": 17,
+        "coin_count": 1,
+        "coin_power": 9,
+        "offense_level_mod": 2,
+        "atkweight": 1,
+        "coins": [
+          {"kind": "positive", "power": 9, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "count": 3, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "curse", "potency": 2, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "the_uninvited", "count": 2, "target": "other"},
+            {"when": "on_hit", "kind": "not_implemented", "name": "gloom_resonance_fragility",
+             "note": "At 4+ Gloom Reson., inflict 1 Gloom Fragility"}]}
+        ],
+        "effects": [
+          {"when": "attack_end", "kind": "not_implemented", "name": "heal_allies",
+           "note": "Heal 2 allies with the lowest HP% by (10 + (Sinking Potency + Count)/3)% HP (max 20%)"}
+        ],
+        "confidence": "verified"
+      },
+      "corrosion": {
+        "sid": "ego_bygone_days_ishmael_c",
+        "name": "往昔（侵蚀）",
+        "sin": "gloom",
+        "damage_type": "slash",
+        "base_power": 17,
+        "coin_count": 1,
+        "coin_power": 9,
+        "offense_level_mod": 2,
+        "atkweight": 1,
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "corrosion_variant",
+           "note": "侵蚀形态效果文本待补录"}
+        ],
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.wiki.gg/wiki/Bygone Days Ishmael",
+      "confidence": "verified"
+    },
+
+    {
+      "eid": "rime_shank_rodion",
       "name": "冰结之爪",
       "owner": "despair_rodion",
       "grade": "TETH",
       "sin": "gloom",
-      "sp_cost": 15,
-      "corrosion_sp_cost": 22,
-      "resist_override": {
-        "_all_from_sin": "gloom"
-      },
+      "sp_cost": 20,
+      "corrosion_sp_cost": 20,
+      "no_coin_reuse": true,
+      "resist_override": {"wrath": 2.0, "lust": 1.0, "sloth": 2.0, "gluttony": 1.0,
+                          "gloom": 0.5, "pride": 1.0, "envy": 1.0},
       "awakening": {
-        "sid": "ego_frost_claw_rodion",
+        "sid": "ego_rime_shank_rodion",
         "name": "冰结之爪（觉醒）",
         "sin": "gloom",
-        "damage_type": "pierce",
-        "base_power": 7,
-        "coin_count": 2,
-        "coin": {
-          "kind": "negative",
-          "power": 6,
-          "damage": 28,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 3,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
-        "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "status": {
-                "key": "sinking",
-                "who": "other",
-                "count_gte": 3
-              }
-            },
-            "then": [
-              {
-                "kind": "add_status",
-                "key": "fragile",
-                "count": 2,
-                "target": "other"
-              }
-            ]
-          }
+        "damage_type": "blunt",
+        "base_power": 15,
+        "coin_count": 1,
+        "coin_power": 15,
+        "offense_level_mod": 1,
+        "atkweight": 3,
+        "coins": [
+          {"kind": "positive", "power": 15, "damage": 0, "effects": [
+            {"when": "on_hit", "kind": "not_implemented", "name": "tremor_burst",
+             "note": "Trigger Tremor Burst"},
+            {"when": "on_hit", "kind": "add_status", "key": "sinking", "potency": 5, "count": 5,
+             "target": "other"}]}
         ],
-        "owner": "despair_rodion",
-        "confidence": "low"
+        "effects": [
+          {"when": "on_use", "kind": "branch",
+           "branch_if": {"hp_pct": {"who": "other", "gte": 0.5}},
+           "then": [{"kind": "modify_damage_mult", "mult": 1.3}]}
+        ],
+        "description": "单枚高威力硬币（15+15）；目标 HP > 50% 时 +30% 伤害；命中施加 5 沉沦强度 + 5 层数。",
+        "confidence": "verified"
       },
       "corrosion": {
-        "sid": "ego_frost_claw_rodion_c",
+        "sid": "ego_rime_shank_rodion_c",
         "name": "冰结之爪（侵蚀）",
         "sin": "gloom",
-        "damage_type": "pierce",
-        "base_power": 9,
-        "coin_count": 2,
-        "coin": {
-          "kind": "negative",
-          "power": 6,
-          "damage": 32,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 4,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
+        "damage_type": "blunt",
+        "base_power": 15,
+        "coin_count": 1,
+        "coin_power": 15,
+        "offense_level_mod": 1,
+        "atkweight": 3,
         "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "status": {
-                "key": "sinking",
-                "who": "other",
-                "count_gte": 3
-              }
-            },
-            "then": [
-              {
-                "kind": "add_status",
-                "key": "fragile",
-                "count": 2,
-                "target": "other"
-              }
-            ]
-          }
+          {"when": "on_use", "kind": "not_implemented", "name": "corrosion_variant",
+           "note": "侵蚀形态效果文本待补录"}
         ],
-        "owner": "despair_rodion",
         "confidence": "low"
       },
-      "source": "https://limbuscompany.huijiwiki.com/wiki/冰结之爪-罗佳",
-      "confidence": "low"
+      "source": "https://limbuscompany.wiki.gg/wiki/Rime Shank Rodion",
+      "confidence": "verified"
     }
   ]
 }

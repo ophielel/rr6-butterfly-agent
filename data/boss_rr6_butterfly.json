@@ -1,435 +1,618 @@
 {
   "_meta": {
-    "purpose": "RR6 第五区段「折射的罗生蝶::蝶」+ 过去/现在/未来三幻影。",
+    "purpose": "RR6 Line 6 / Section 5 / Station 8「Advent」的真实 Boss：折射的罗生蝶::Imago + 三只幻影蝶。",
     "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
-    "wiki_accessible": false,
-    "wiki_reference": "https://limbuscompany.huijiwiki.com/wiki/折射轨道6号线-第五区段 （本机 403，无法直接抓取）",
-    "known_from_plan": "计划书记录本体 HP 25616；三套状态栈 + 三幻影 + 形态切换 + 混乱阈值。",
-    "assumptions": [
-      "幻影受击：每枚硬币削减对应状态栈 1 层（phantom_stack_decay_per_coin）。",
-      "幻影受到的伤害按 phantom_damage_transfer（默认 1.0）转移给本体。",
-      "幻影整回合未被作为主要目标攻击时，回合结束回补对应状态栈（phantom_restore_amount）。",
-      "形态 = 三套栈中最高的一个；形态变化时本体获得「时隙」层数（form_switch_timegap）。",
-      "本体 HP 跨过 stack_thresholds 时，三套状态栈同时补充（hp_threshold_stack_bonus）。",
-      "本体每回合开局回复 8 SP，避免沉沦一回合直接把它压到 -45。"
+    "evidence": [
+      "https://limbuscompany.wiki.gg/wiki/Butterfly of Entangled Lives 羅生蝶/Enemy/Butterfly of Entangled Lives::Imago",
+      "https://limbuscompany.wiki.gg/wiki/Line 6: Maru no Uchi no Sanzu no Kawa",
+      "https://limbuscompany.wiki.gg/wiki/Illusory Butterfly of Entangled Lives::The Past"
     ],
-    "confidence": "low"
+    "hp_formula": "hp = 9090 + hpgrowth(275.44) × level(60) = 25616（与计划书记录一致）",
+    "verified": [
+      "HP / 等级 / 速度 / 防御等级修正 / 4 个混乱阈值(%) / 物理与罪孽抗性",
+      "12 个本体技能的基础数据（spower / cpower / coin / atkmod / atkweight / 类型 / 罪孽）",
+      "三套状态栈 In the Past / In the Present / In the Future 的获得与削减方式",
+      "Moment of Entangled Lives：回合开始激活最高栈的时间状态；幻影被作为主要目标攻击时本体失去对应栈",
+      "三世因果：开战时三栈各 10；HP 首次低于 66%/33% 时下回合三栈各 +10",
+      "三回合技能循环（按激活状态与 HP 阶段切换）",
+      "第 4 回合开头的 Choice Event（Sunset Wayfarer's Sap A5 / Moth B5）"
+    ],
+    "not_implemented": [
+      "Poise / 暴击（Crit 静态修正）",
+      "Unbreakable Coin 的 Crack 机制（当前只实现了「低于血量阈值时转为 Unbreakable」的标记）",
+      "Burn / Bleed 的完整结算口径（层数消耗与激活次数）",
+      "Scale Dust（Incandescent / Acuate / Rusted）",
+      "Temporal Disjunction / Wrath Fragility / HP Healing Down 等 E.G.O 相关状态的效果",
+      "攻击权重 / 子目标 / 部位破坏",
+      "随机硬币目标（庄严哀悼系 E.G.O 需要）"
+    ],
+    "confidence": "high（结构与数值）/ low（幻影蝶的 Section 5 版本细节）"
   },
-  "initial_stacks": {
-    "past": 2,
-    "present": 2,
-    "future": 2
-  },
+
+  "initial_stacks": {"in_the_past": 10, "in_the_present": 10, "in_the_future": 10},
+
   "boss": {
     "uid": "boss",
-    "name": "折射的罗生蝶::蝶",
+    "name": "折射的罗生蝶::Imago",
     "kind": "boss",
-    "hp": 25616,
+    "level": 60,
+    "hp": 9090,
+    "hpgrowth": 275.44,
     "sp": 0,
-    "offense_level": 50,
-    "defense_level": 50,
-    "speed_range": [
-      4,
-      8
-    ],
-    "slots": 2,
-    "stagger_thresholds_pct": [
-      0.9,
-      0.7,
-      0.47,
-      0.23
-    ],
-    "resistances": {
-      "slash": 1.0,
-      "pierce": 1.0,
-      "blunt": 1.0
-    },
-    "sin_resistances": {
-      "wrath": 1.0,
-      "lust": 1.0,
-      "sloth": 1.0,
-      "gluttony": 1.0,
-      "gloom": 1.0,
-      "pride": 1.0,
-      "envy": 1.0
-    },
-    "skill_pool": [
-      "bt_s1",
-      "bt_s2",
-      "bt_s3",
-      "bt_s4"
-    ],
-    "skill_script": [
-      "bt_s1",
-      "bt_s2",
-      "bt_s3",
-      "bt_s4"
-    ],
-    "target_mode": "spread",
+    "has_sanity": false,
+    "offense_level": 60,
+    "defense_level": 60,
+    "defense_level_mod": 0,
+    "speed_range": [1, 3],
+    "slots": 1,
+    "stagger_thresholds_pct": [0.85, 0.65, 0.40, 0.10],
+    "resistances": {"slash": 1.0, "pierce": 1.0, "blunt": 1.0},
+    "sin_resistances": {"wrath": 1.25, "lust": 1.25, "sloth": 0.75, "gluttony": 0.75,
+                        "gloom": 1.0, "pride": 1.25, "envy": 1.0},
+    "skill_pool": ["im_fluttering_havoc", "im_pulverization", "im_chaotic_turmoil",
+                   "im_temper_and_cast", "im_immolation", "im_kalpagni",
+                   "im_anitya", "im_skypiercer", "im_smite_the_wicked",
+                   "im_corrosive_disintegration", "im_rotting_annihilation", "im_bloodflower"],
     "state": {
-      "form": "neutral",
-      "stack_thresholds_pct": [
-        0.78,
-        0.58,
-        0.39,
-        0.19
-      ],
-      "stack_threshold_index": 0
+      "active_time_state": "in_the_past",
+      "stack_thresholds_pct": [0.66, 0.33],
+      "stack_threshold_index": 0,
+      "cycle_turn": 0
     },
+    "target_mode": "spread",
     "passive_effects": [
       {
-        "when": "turn_start",
-        "kind": "heal_sp",
-        "amount": 8,
-        "target": "self",
-        "rr6_passive": "sp_recovery"
+        "when": "battle_start",
+        "kind": "add_status", "key": "in_the_past", "count": 10, "target": "self"
       },
       {
-        "when": "turn_start",
-        "kind": "branch",
-        "branch_if": {
-          "hp_pct": {
-            "who": "self",
-            "lte": 0.5
-          }
-        },
-        "then": [
-          {
-            "kind": "add_status",
-            "key": "strong",
-            "potency": 1,
-            "count": 1,
-            "target": "self"
-          }
-        ],
-        "rr6_passive": "low_hp_power"
-      }
-    ],
-    "on_hp_threshold_effects": [
+        "when": "battle_start",
+        "kind": "add_status", "key": "in_the_present", "count": 10, "target": "self"
+      },
       {
-        "kind": "add_status",
-        "key": "fragile",
-        "count": 2,
-        "target": "self"
+        "when": "battle_start",
+        "kind": "add_status", "key": "in_the_future", "count": 10, "target": "self"
+      },
+      {
+        "when": "hp_threshold",
+        "kind": "branch",
+        "branch_if": {"always": true},
+        "then": [
+          {"kind": "add_status", "key": "in_the_past", "count": 10, "target": "self"},
+          {"kind": "add_status", "key": "in_the_present", "count": 10, "target": "self"},
+          {"kind": "add_status", "key": "in_the_future", "count": 10, "target": "self"}
+        ],
+        "note": "三世因果：首次低于 66%/33% HP 时，下回合三栈各 +10（当前简化为立即 +10）"
       }
     ],
     "skills": [
       {
-        "sid": "bt_s1",
-        "name": "蝶之刃",
-        "sin": "wrath",
-        "damage_type": "slash",
-        "base_power": 5,
-        "coin_count": 3,
-        "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 18,
-          "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 2,
-              "count": 2,
-              "target": "other"
-            }
-          ]
-        },
-        "confidence": "low"
-      },
-      {
-        "sid": "bt_s2",
-        "name": "时间断层",
+        "sid": "im_fluttering_havoc",
+        "name": "Fluttering Havoc",
         "sin": "gloom",
-        "damage_type": "blunt",
-        "base_power": 6,
+        "damage_type": "pierce",
+        "slevel": 1,
+        "base_power": 4,
         "coin_count": 2,
+        "coin_power": 3,
+        "offense_level_mod": 2,
+        "atkweight": 1,
         "coin": {
-          "kind": "positive",
-          "power": 5,
-          "damage": 24,
+          "kind": "positive", "power": 3, "damage": 0,
           "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "fragile",
-              "count": 2,
-              "target": "other"
-            }
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "potency": 1, "count": 0, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 1, "count": 0, "target": "other"}
           ]
         },
         "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "form_is": "future"
-            },
-            "then": [
-              {
-                "kind": "modify_damage",
-                "amount": 6
-              }
-            ]
-          }
+          {"when": "on_use", "kind": "not_implemented", "name": "clash_power_scaling",
+           "note": "Clash Power +1 per 8 (Burn+Bleed) on target (max 3)；未实现拼点条件修正"},
+          {"when": "on_use", "kind": "not_implemented", "name": "poise_damage_scaling",
+           "note": "Deal +10% per 6 Poise on self (max 30%)；Poise 未实现"},
+          {"when": "on_use", "kind": "add_status", "key": "poise", "potency": 2, "count": 0, "target": "self"}
         ],
-        "confidence": "low"
+        "hp_threshold_coin_effects": [
+          {"coin": "last", "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
       },
       {
-        "sid": "bt_s3",
-        "name": "罗生之舞",
-        "sin": "pride",
-        "damage_type": "slash",
-        "base_power": 7,
-        "coin_count": 4,
+        "sid": "im_pulverization",
+        "name": "Pulverization",
+        "sin": "sloth",
+        "damage_type": "pierce",
+        "slevel": 1,
+        "base_power": 4,
+        "coin_count": 2,
+        "coin_power": 3,
+        "offense_level_mod": 2,
+        "atkweight": 1,
         "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 20,
+          "kind": "positive", "power": 3, "damage": 0,
           "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "offense_level_down",
-              "count": 1,
-              "target": "other"
-            }
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "count": 1, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "count": 1, "target": "other"}
           ]
         },
-        "confidence": "low"
+        "effects": [
+          {"when": "on_use", "kind": "add_status", "key": "poise", "count": 2, "target": "self"}
+        ],
+        "hp_threshold_coin_effects": [
+          {"coin": "last", "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
       },
       {
-        "sid": "bt_s4",
-        "name": "过去之影",
-        "sin": "envy",
+        "sid": "im_chaotic_turmoil",
+        "name": "Chaotic Turmoil",
+        "sin": "gluttony",
+        "damage_type": "blunt",
+        "slevel": 2,
+        "base_power": 3,
+        "coin_count": 1,
+        "coin_power": 3,
+        "offense_level_mod": 3,
+        "atkweight": 1,
+        "coin": {
+          "kind": "positive", "power": 3, "damage": 0, "unbreakable": true,
+          "effects": [
+            {"when": "on_hit", "kind": "reuse_coin", "coin": "current", "max_reuse": 2,
+             "if": {"hp_pct": {"who": "self", "lte": 0.99}}, "source": "missing_hp_33"},
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "potency": 1, "count": 0, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 1, "count": 0, "target": "other"},
+            {"when": "on_hit", "kind": "add_status", "key": "poise", "count": 1, "target": "self"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "clash_power_scaling",
+           "note": "Clash Power +1 per 6 (Burn+Bleed) on target (max 6) 与 +1 per 6 Poise (max 3)"},
+          {"when": "on_clash_lose", "kind": "add_status", "key": "damage_down", "count": 2, "target": "self"},
+          {"when": "on_clash_lose", "kind": "add_status", "key": "power_down", "count": 2, "target": "self"}
+        ],
+        "confidence": "verified",
+        "note": "「Reuse this Coin once for every 33% missing HP (max 2 times)」当前近似为 HP<100% 时最多 reuse 2 次；精确的 33%/66% 分档见 docs/verification_checklist.md"
+      },
+      {
+        "sid": "im_temper_and_cast",
+        "name": "Temper and Cast",
+        "sin": "wrath",
         "damage_type": "pierce",
+        "slevel": 2,
+        "base_power": 5,
+        "coin_count": 2,
+        "coin_power": 3,
+        "offense_level_mod": 3,
+        "atkweight": 1,
+        "coin": {
+          "kind": "positive", "power": 3, "damage": 0,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "potency": 1, "count": 1, "target": "other"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "unclashable_by_speed",
+           "note": "Can Clash with this Skill regardless of Speed"}
+        ],
+        "hp_threshold_coin_effects": [
+          {"coin": 1, "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_immolation",
+        "name": "Immolation",
+        "sin": "wrath",
+        "damage_type": "pierce",
+        "slevel": 3,
         "base_power": 6,
         "coin_count": 3,
+        "coin_power": 4,
+        "offense_level_mod": 4,
+        "atkweight": 3,
         "coin": {
-          "kind": "positive",
-          "power": 4,
-          "damage": 19,
+          "kind": "positive", "power": 4, "damage": 0,
           "effects": [
-            {
-              "when": "on_hit",
-              "kind": "add_status",
-              "key": "sinking",
-              "potency": 3,
-              "count": 1,
-              "target": "other"
-            }
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "count": 2, "target": "other"}
           ]
         },
         "effects": [
-          {
-            "when": "on_use",
-            "kind": "branch",
-            "branch_if": {
-              "form_is": "past"
-            },
-            "then": [
-              {
-                "kind": "add_stack",
-                "time": "all",
-                "amount": 1
-              }
-            ]
-          }
+          {"when": "on_use", "kind": "not_implemented", "name": "past_stack_damage",
+           "note": "Deal +(In the Past × 2)% damage (max 60%)"},
+          {"when": "on_use", "kind": "add_status", "key": "burn", "potency": 3, "target": "other"}
         ],
-        "confidence": "low"
+        "hp_threshold_coin_effects": [
+          {"coin": 1, "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_kalpagni",
+        "name": "Kalpāgni",
+        "sin": "wrath",
+        "damage_type": "pierce",
+        "slevel": 3,
+        "base_power": 10,
+        "coin_count": 4,
+        "coin_power": 4,
+        "offense_level_mod": 6,
+        "atkweight": 7,
+        "coin": {
+          "kind": "positive", "power": 4, "damage": 0, "unbreakable": true,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "burn", "potency": 1, "count": 1, "target": "other"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "past_stack_damage",
+           "note": "Final Power +1 per 6 Burn on target (max 6)；Deal +(In the Past × 4)% damage (max 120%)"},
+          {"when": "on_clash_win", "kind": "add_status", "key": "in_the_past", "count": 5, "target": "self"},
+          {"when": "on_clash_lose", "kind": "not_implemented", "name": "halve_in_the_past",
+           "note": "Clash Lose: Halve In the Past (rounded down) + 2 Damage Down + 4 Paralyze"}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_anitya",
+        "name": "Anitya",
+        "sin": "pride",
+        "damage_type": "pierce",
+        "slevel": 2,
+        "base_power": 5,
+        "coin_count": 2,
+        "coin_power": 3,
+        "offense_level_mod": 3,
+        "atkweight": 1,
+        "coin": {
+          "kind": "positive", "power": 3, "damage": 0,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "poise", "potency": 1, "count": 1, "target": "self"}
+          ]
+        },
+        "effects": [
+          {"when": "before_attack", "kind": "add_status", "key": "poise", "potency": 2, "count": 2, "target": "self"}
+        ],
+        "hp_threshold_coin_effects": [
+          {"coin": 1, "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_skypiercer",
+        "name": "Skypiercer",
+        "sin": "pride",
+        "damage_type": "pierce",
+        "slevel": 3,
+        "base_power": 6,
+        "coin_count": 4,
+        "coin_power": 4,
+        "offense_level_mod": 4,
+        "atkweight": 1,
+        "coin": {
+          "kind": "positive", "power": 4, "damage": 0,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "poise", "potency": 1, "count": 1, "target": "self"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "present_stack_damage",
+           "note": "Deal +(In the Present × 2)% damage (max 60%)；Poise 相关加成未实现"},
+          {"when": "before_attack", "kind": "add_status", "key": "poise", "potency": 3, "count": 2, "target": "self"}
+        ],
+        "hp_threshold_coin_effects": [
+          {"coin": 1, "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_smite_the_wicked",
+        "name": "Smite the Wicked",
+        "sin": "pride",
+        "damage_type": "pierce",
+        "slevel": 3,
+        "base_power": 14,
+        "coin_count": 1,
+        "coin_power": 12,
+        "offense_level_mod": 6,
+        "atkweight": 1,
+        "coin": {
+          "kind": "positive", "power": 12, "damage": 0, "unbreakable": true,
+          "effects": [
+            {"when": "on_use", "kind": "not_implemented", "name": "pierce_res_floor",
+             "note": "If target's Pierce Resist < Weak(1.5)，treat as Weak(1.5)"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "present_stack_damage",
+           "note": "Final Power +1 & +20% damage per 6 Poise (max 6 / 120%)；+(In the Present × 4)% damage"},
+          {"when": "on_use", "kind": "add_status", "key": "poise", "potency": 4, "count": 4, "target": "self"},
+          {"when": "on_clash_win", "kind": "add_status", "key": "in_the_present", "count": 5, "target": "self"},
+          {"when": "on_clash_lose", "kind": "not_implemented", "name": "halve_in_the_present",
+           "note": "Clash Lose: Halve In the Present + 2 Damage Down + 1 Paralyze"}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_corrosive_disintegration",
+        "name": "Corrosive Disintegration",
+        "sin": "lust",
+        "damage_type": "pierce",
+        "slevel": 2,
+        "base_power": 5,
+        "coin_count": 2,
+        "coin_power": 3,
+        "offense_level_mod": 3,
+        "atkweight": 1,
+        "coin": {
+          "kind": "positive", "power": 3, "damage": 0,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 1, "count": 1, "target": "other"}
+          ]
+        },
+        "hp_threshold_coin_effects": [
+          {"coin": 1, "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_rotting_annihilation",
+        "name": "Rotting Annihilation",
+        "sin": "lust",
+        "damage_type": "pierce",
+        "slevel": 3,
+        "base_power": 8,
+        "coin_count": 2,
+        "coin_power": 5,
+        "offense_level_mod": 4,
+        "atkweight": 3,
+        "coin": {
+          "kind": "positive", "power": 5, "damage": 0,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 2, "count": 2, "target": "other"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "future_stack_damage",
+           "note": "Deal +(In the Future × 2)% damage (max 60%)"}
+        ],
+        "hp_threshold_coin_effects": [
+          {"coin": 1, "below_pct": 0.66, "unbreakable": true},
+          {"coin": "all", "below_pct": 0.33, "unbreakable": true}
+        ],
+        "confidence": "verified"
+      },
+      {
+        "sid": "im_bloodflower",
+        "name": "Bloodflower",
+        "sin": "lust",
+        "damage_type": "pierce",
+        "slevel": 3,
+        "base_power": 10,
+        "coin_count": 2,
+        "coin_power": 8,
+        "offense_level_mod": 6,
+        "atkweight": 5,
+        "coin": {
+          "kind": "positive", "power": 8, "damage": 0, "unbreakable": true,
+          "effects": [
+            {"when": "on_hit", "kind": "add_status", "key": "bleed", "potency": 1, "count": 1, "target": "other"}
+          ]
+        },
+        "effects": [
+          {"when": "on_use", "kind": "not_implemented", "name": "future_stack_damage",
+           "note": "Final Power +1 per 6 Bleed (max 6)；Deal +(In the Future × 4)% damage (max 120%)"},
+          {"when": "on_clash_win", "kind": "add_status", "key": "in_the_future", "count": 5, "target": "self"},
+          {"when": "on_clash_lose", "kind": "not_implemented", "name": "halve_in_the_future",
+           "note": "Clash Lose: Halve In the Future + 2 Damage Down + 2 Paralyze"}
+        ],
+        "confidence": "verified"
       }
     ],
-    "source": "https://limbuscompany.huijiwiki.com/wiki/折射轨道6号线-第五区段",
-    "confidence": "low"
+    "skill_rotations": {
+      "in_the_past": {
+        "normal": ["im_temper_and_cast", "im_temper_and_cast", "im_fluttering_havoc", "im_fluttering_havoc",
+                   "im_fluttering_havoc", "im_fluttering_havoc", "im_immolation", "im_immolation",
+                   "im_pulverization", "im_pulverization", "im_pulverization", "im_pulverization",
+                   "im_kalpagni", "im_chaotic_turmoil", "im_chaotic_turmoil", "im_chaotic_turmoil"],
+        "below_66": ["im_temper_and_cast", "im_temper_and_cast", "im_temper_and_cast",
+                     "im_fluttering_havoc", "im_fluttering_havoc", "im_fluttering_havoc",
+                     "im_immolation", "im_immolation", "im_immolation",
+                     "im_pulverization", "im_pulverization", "im_pulverization",
+                     "im_kalpagni", "im_immolation", "im_chaotic_turmoil", "im_chaotic_turmoil"],
+        "below_33": ["im_temper_and_cast", "im_temper_and_cast", "im_temper_and_cast", "im_temper_and_cast",
+                     "im_fluttering_havoc", "im_fluttering_havoc",
+                     "im_immolation", "im_immolation", "im_immolation", "im_immolation",
+                     "im_pulverization", "im_pulverization",
+                     "im_kalpagni", "im_kalpagni", "im_immolation", "im_chaotic_turmoil"]
+      },
+      "in_the_present": {
+        "normal": ["im_anitya", "im_anitya", "im_fluttering_havoc", "im_fluttering_havoc",
+                   "im_fluttering_havoc", "im_fluttering_havoc", "im_skypiercer", "im_skypiercer",
+                   "im_pulverization", "im_pulverization", "im_pulverization", "im_pulverization",
+                   "im_smite_the_wicked", "im_chaotic_turmoil", "im_chaotic_turmoil", "im_chaotic_turmoil"],
+        "below_66": ["im_anitya", "im_anitya", "im_anitya",
+                     "im_fluttering_havoc", "im_fluttering_havoc", "im_fluttering_havoc",
+                     "im_skypiercer", "im_skypiercer", "im_skypiercer",
+                     "im_pulverization", "im_pulverization", "im_pulverization",
+                     "im_smite_the_wicked", "im_skypiercer", "im_chaotic_turmoil", "im_chaotic_turmoil"],
+        "below_33": ["im_anitya", "im_anitya", "im_anitya", "im_anitya",
+                     "im_fluttering_havoc", "im_fluttering_havoc",
+                     "im_skypiercer", "im_skypiercer", "im_skypiercer", "im_skypiercer",
+                     "im_pulverization", "im_pulverization",
+                     "im_smite_the_wicked", "im_smite_the_wicked", "im_skypiercer", "im_chaotic_turmoil"]
+      },
+      "in_the_future": {
+        "normal": ["im_corrosive_disintegration", "im_corrosive_disintegration",
+                   "im_fluttering_havoc", "im_fluttering_havoc", "im_fluttering_havoc", "im_fluttering_havoc",
+                   "im_rotting_annihilation", "im_rotting_annihilation",
+                   "im_pulverization", "im_pulverization", "im_pulverization", "im_pulverization",
+                   "im_bloodflower", "im_chaotic_turmoil", "im_chaotic_turmoil", "im_chaotic_turmoil"],
+        "below_66": ["im_corrosive_disintegration", "im_corrosive_disintegration",
+                     "im_corrosive_disintegration", "im_fluttering_havoc", "im_fluttering_havoc",
+                     "im_fluttering_havoc", "im_rotting_annihilation", "im_rotting_annihilation",
+                     "im_rotting_annihilation", "im_pulverization", "im_pulverization",
+                     "im_pulverization", "im_bloodflower", "im_rotting_annihilation",
+                     "im_chaotic_turmoil", "im_chaotic_turmoil"],
+        "below_33": ["im_corrosive_disintegration", "im_corrosive_disintegration",
+                     "im_corrosive_disintegration", "im_corrosive_disintegration",
+                     "im_fluttering_havoc", "im_fluttering_havoc",
+                     "im_rotting_annihilation", "im_rotting_annihilation",
+                     "im_rotting_annihilation", "im_rotting_annihilation",
+                     "im_pulverization", "im_pulverization",
+                     "im_bloodflower", "im_bloodflower", "im_rotting_annihilation",
+                     "im_chaotic_turmoil"]
+      }
+    },
+    "source": "https://limbuscompany.wiki.gg/wiki/Butterfly of Entangled Lives 羅生蝶/Enemy/Butterfly of Entangled Lives::Imago",
+    "confidence": "high"
   },
+
   "phantoms": [
     {
       "uid": "phantom_past",
-      "name": "过去的幻影",
+      "name": "幻影蝶::过去",
       "kind": "phantom",
-      "time_type": "past",
-      "hp": 2000,
+      "time_type": "in_the_past",
+      "hp": 1,
+      "shield": 333,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
-      "speed_range": [
-        2,
-        6
-      ],
+      "has_sanity": false,
+      "offense_level": 60,
+      "defense_level": 60,
+      "speed_range": [1, 1],
       "slots": 1,
       "stagger_thresholds": [],
-      "resistances": {
-        "slash": 1.0,
-        "pierce": 1.0,
-        "blunt": 1.0
-      },
-      "sin_resistances": {
-        "wrath": 1.0,
-        "lust": 1.0,
-        "sloth": 1.0,
-        "gluttony": 1.0,
-        "gloom": 1.0,
-        "pride": 1.0,
-        "envy": 1.0
-      },
-      "skill_pool": [
-        "ph_past_s1"
+      "resistances": {"slash": 1.0, "pierce": 1.0, "blunt": 1.0},
+      "sin_resistances": {"wrath": 1.0, "lust": 1.0, "sloth": 1.0, "gluttony": 1.0,
+                          "gloom": 1.0, "pride": 1.0, "envy": 1.0},
+      "skill_pool": ["il_eclosion_past"],
+      "skill_script": ["il_eclosion_past"],
+      "target_mode": "first",
+      "passive_effects": [
+        {"when": "battle_start", "kind": "add_shield", "amount": 333, "target": "self"},
+        {"when": "turn_start", "kind": "not_implemented", "name": "scale_dust_past",
+         "note": "Quadruple the effects of Incandescent Scale Dust；Take +100% damage from E.G.O Skills"}
       ],
-      "skill_script": [
-        "ph_past_s1"
-      ],
-      "target_mode": "random",
       "skills": [
         {
-          "sid": "ph_past_s1",
-          "name": "过去的回响",
-          "sin": "sloth",
-          "damage_type": "slash",
-          "base_power": 4,
-          "coin_count": 2,
-          "coin": {
-            "kind": "positive",
-            "power": 3,
-            "damage": 12,
-            "effects": [
-              {
-                "when": "on_hit",
-                "kind": "add_status",
-                "key": "sinking",
-                "potency": 1,
-                "count": 1,
-                "target": "other"
-              }
-            ]
-          },
+          "sid": "il_eclosion_past",
+          "name": "Eclosion",
+          "sin": "wrath",
+          "damage_type": "pierce",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {"kind": "positive", "power": 8, "damage": 0, "unbreakable": true, "effects": []},
+          "effects": [
+            {"when": "on_use", "kind": "not_implemented", "name": "eclosion",
+             "note": "Unclashable / Target Fixed / deals 0 damage / Attack End: End the Encounter"}
+          ],
           "confidence": "low"
         }
       ]
     },
     {
       "uid": "phantom_present",
-      "name": "现在的幻影",
+      "name": "幻影蝶::现在",
       "kind": "phantom",
-      "time_type": "present",
-      "hp": 2000,
+      "time_type": "in_the_present",
+      "hp": 1,
+      "shield": 333,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
-      "speed_range": [
-        2,
-        6
-      ],
+      "has_sanity": false,
+      "offense_level": 60,
+      "defense_level": 60,
+      "speed_range": [1, 1],
       "slots": 1,
       "stagger_thresholds": [],
-      "resistances": {
-        "slash": 1.0,
-        "pierce": 1.0,
-        "blunt": 1.0
-      },
-      "sin_resistances": {
-        "wrath": 1.0,
-        "lust": 1.0,
-        "sloth": 1.0,
-        "gluttony": 1.0,
-        "gloom": 1.0,
-        "pride": 1.0,
-        "envy": 1.0
-      },
-      "skill_pool": [
-        "ph_present_s1"
+      "resistances": {"slash": 1.0, "pierce": 1.0, "blunt": 1.0},
+      "sin_resistances": {"wrath": 1.0, "lust": 1.0, "sloth": 1.0, "gluttony": 1.0,
+                          "gloom": 1.0, "pride": 1.0, "envy": 1.0},
+      "skill_pool": ["il_eclosion_present"],
+      "skill_script": ["il_eclosion_present"],
+      "target_mode": "first",
+      "passive_effects": [
+        {"when": "battle_start", "kind": "add_shield", "amount": 333, "target": "self"},
+        {"when": "turn_start", "kind": "not_implemented", "name": "scale_dust_present",
+         "note": "Quadruple the effects of Acuate Scale Dust；Take +100% damage from E.G.O Skills"}
       ],
-      "skill_script": [
-        "ph_present_s1"
-      ],
-      "target_mode": "random",
       "skills": [
         {
-          "sid": "ph_present_s1",
-          "name": "现在的回响",
-          "sin": "gluttony",
+          "sid": "il_eclosion_present",
+          "name": "Eclosion",
+          "sin": "pride",
           "damage_type": "pierce",
-          "base_power": 4,
-          "coin_count": 2,
-          "coin": {
-            "kind": "positive",
-            "power": 3,
-            "damage": 12,
-            "effects": [
-              {
-                "when": "on_hit",
-                "kind": "add_status",
-                "key": "fragile",
-                "count": 1,
-                "target": "other"
-              }
-            ]
-          },
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {"kind": "positive", "power": 8, "damage": 0, "unbreakable": true, "effects": []},
+          "effects": [
+            {"when": "on_use", "kind": "not_implemented", "name": "eclosion",
+             "note": "Unclashable / Target Fixed / deals 0 damage / Attack End: End the Encounter"}
+          ],
           "confidence": "low"
         }
       ]
     },
     {
       "uid": "phantom_future",
-      "name": "未来的幻影",
+      "name": "幻影蝶::未来",
       "kind": "phantom",
-      "time_type": "future",
-      "hp": 2000,
+      "time_type": "in_the_future",
+      "hp": 1,
+      "shield": 333,
       "sp": 0,
-      "offense_level": 50,
-      "defense_level": 50,
-      "speed_range": [
-        2,
-        6
-      ],
+      "has_sanity": false,
+      "offense_level": 60,
+      "defense_level": 60,
+      "speed_range": [1, 1],
       "slots": 1,
       "stagger_thresholds": [],
-      "resistances": {
-        "slash": 1.0,
-        "pierce": 1.0,
-        "blunt": 1.0
-      },
-      "sin_resistances": {
-        "wrath": 1.0,
-        "lust": 1.0,
-        "sloth": 1.0,
-        "gluttony": 1.0,
-        "gloom": 1.0,
-        "pride": 1.0,
-        "envy": 1.0
-      },
-      "skill_pool": [
-        "ph_future_s1"
+      "resistances": {"slash": 1.0, "pierce": 1.0, "blunt": 1.0},
+      "sin_resistances": {"wrath": 1.0, "lust": 1.0, "sloth": 1.0, "gluttony": 1.0,
+                          "gloom": 1.0, "pride": 1.0, "envy": 1.0},
+      "skill_pool": ["il_eclosion_future"],
+      "skill_script": ["il_eclosion_future"],
+      "target_mode": "first",
+      "passive_effects": [
+        {"when": "battle_start", "kind": "add_shield", "amount": 333, "target": "self"},
+        {"when": "turn_start", "kind": "not_implemented", "name": "scale_dust_future",
+         "note": "Quadruple the effects of Rusted Scale Dust；Take +100% damage from E.G.O Skills"}
       ],
-      "skill_script": [
-        "ph_future_s1"
-      ],
-      "target_mode": "random",
       "skills": [
         {
-          "sid": "ph_future_s1",
-          "name": "未来的回响",
-          "sin": "pride",
-          "damage_type": "blunt",
-          "base_power": 4,
-          "coin_count": 2,
-          "coin": {
-            "kind": "positive",
-            "power": 3,
-            "damage": 12,
-            "effects": [
-              {
-                "when": "on_hit",
-                "kind": "add_status",
-                "key": "offense_level_down",
-                "count": 1,
-                "target": "other"
-              }
-            ]
-          },
+          "sid": "il_eclosion_future",
+          "name": "Eclosion",
+          "sin": "lust",
+          "damage_type": "pierce",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {"kind": "positive", "power": 8, "damage": 0, "unbreakable": true, "effects": []},
+          "effects": [
+            {"when": "on_use", "kind": "not_implemented", "name": "eclosion",
+             "note": "Unclashable / Target Fixed / deals 0 damage / Attack End: End the Encounter"}
+          ],
           "confidence": "low"
         }
       ]
     }
-  ]
+  ],
+
+  "encounter": {
+    "source": "https://limbuscompany.wiki.gg/wiki/Line 6: Maru no Uchi no Sanzu no Kawa",
+    "section": 5,
+    "station": 8,
+    "name": "Advent",
+    "waves": [["boss", "phantom_past", "phantom_present", "phantom_future"]],
+    "notes": [
+      "Section 5 使用「通关 Section 1 时的 HP% 与 SP」作为开局状态（本实验由 config 注入）",
+      "Line 6 为 Chain Battle：全员上场 + 最后 5 人 Backup",
+      "第 4 回合开头有 Choice Event（Sunset Wayfarer's Sap A5 / Moth B5）——本实验作为 config 开关"
+    ],
+    "confidence": "high"
+  }
 }

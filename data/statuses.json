@@ -1,250 +1,203 @@
 {
   "_meta": {
-    "purpose": "状态定义表。每条状态都带 source / confidence 字段，见 docs/sources.md 与 docs/verification_checklist.md。",
+    "purpose": "状态定义表。本轮按 docs/audit_report.md 用 wiki.gg 原文重写核心状态。",
     "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
-    "wiki_accessible": false,
-    "wiki_blocked_note": "本机访问 huijiwiki 返回 403，以下数值为按游戏机制结构 + 记忆重建，必须逐条对照游戏内文本校验。",
+    "evidence": "limbuscompany.wiki.gg（经 r.jina.ai 代理抓取，见 tools/wiki_fetch.py）",
+    "confidence_scale": "verified / high / medium / low / synthetic",
     "effect_format": "每条 hook = 效果 dict + when 时点 + 可选 if 条件，见 docs/mechanics_notes.md"
   },
+
   "sinking": {
     "name_cn": "沉沦",
     "name_en": "Sinking",
     "has_potency": true,
     "has_count": true,
-    "description": "命中时，目标失去等同于强度的精神力，层数 -1。",
+    "max_potency": 99,
+    "max_count": 99,
+    "description": "命中时失去等同强度的 SP；无 SP 单位改为受到等同强度的 Gloom 伤害，层数 -1。上限 99/99。",
     "hooks": [
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "sinking",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "lose_sp",
-        "from_status": {
-          "key": "sinking",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "counter": "sinking_sp_damage"
-      },
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "sinking",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "add_status",
-        "key": "sinking",
-        "count": -1,
-        "target": "self"
-      }
+      {"when": "on_hit", "kind": "sinking_trigger", "target": "self"}
     ],
-    "source": "https://limbuscompany.huijiwiki.com/wiki/技能与拼点 (沉沦定义)",
-    "confidence": "medium"
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking",
+    "confidence": "verified"
   },
+
   "butterfly": {
     "name_cn": "蝶",
     "name_en": "Butterfly",
     "has_potency": true,
     "has_count": true,
-    "description": "RR6 罗生蝶相关状态。命中时按强度同时造成精神力与 HP 伤害（消融 G 可关闭特殊部分，只留普通伤害）。",
+    "max_count": 15,
+    "description": "唯一 Sinking。Potency = The Living，Count = The Departed。命中时攻击者回复 (Living/4) SP；自身 SP<0 时每个 Departed 造成 (Sinking Potency/5) Gloom 伤害（上限 30）。回合结束：Departed 归 0 → 获得等同 Living 的 Sinking → Living 转为 Departed。",
     "hooks": [
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "butterfly",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "lose_sp",
-        "from_status": {
-          "key": "butterfly",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "counter": "butterfly_sp_damage"
-      },
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "butterfly",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "deal_damage",
-        "from_status": {
-          "key": "butterfly",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "origin": "butterfly",
-        "counter": "butterfly_hp_damage"
-      },
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "butterfly",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "add_status",
-        "key": "butterfly",
-        "count": -1,
-        "target": "self"
-      }
+      {"when": "on_hit", "kind": "butterfly_trigger", "target": "self"},
+      {"when": "turn_end", "kind": "butterfly_turn_end", "target": "self"}
     ],
-    "source": "https://limbuscompany.huijiwiki.com/wiki/蝶",
-    "confidence": "low"
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Butterfly)",
+    "confidence": "verified"
   },
-  "dead_butterfly": {
-    "name_cn": "亡蝶",
-    "name_en": "Dead Butterfly",
-    "has_potency": true,
-    "has_count": true,
-    "description": "蝶箱系 E.G.O 施加的标记。命中时按强度追加 HP 伤害并减少层数。",
-    "hooks": [
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "dead_butterfly",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "deal_damage",
-        "from_status": {
-          "key": "dead_butterfly",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "origin": "dead_butterfly",
-        "counter": "dead_butterfly_damage"
-      },
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "dead_butterfly",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "add_status",
-        "key": "dead_butterfly",
-        "count": -1,
-        "target": "self"
-      }
-    ],
-    "source": "庄严哀悼 E.G.O 效果（李箱 / 格里高尔）",
-    "confidence": "low"
-  },
+
   "manor_echo": {
     "name_cn": "山庄的回响",
-    "name_en": "Echo of the Manor",
+    "name_en": "Echoes of the Manor",
     "has_potency": false,
     "has_count": true,
-    "description": "回合结束时按层数造成精神力伤害。管家浮的沉沦体系组件。",
-    "hooks": [
-      {
-        "when": "turn_end",
-        "if": {
-          "status": {
-            "key": "manor_echo",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "lose_sp",
-        "from_status": {
-          "key": "manor_echo",
-          "field": "count",
-          "who": "self",
-          "mult": 2
-        },
-        "target": "self",
-        "counter": "echo_sp_damage"
-      }
-    ],
-    "source": "浮士德 呼啸山庄管家",
-    "confidence": "low"
+    "turn_end_count_decay": 1,
+    "not_cumulative": true,
+    "description": "获得 Sinking Potency/Count 时 50% 概率额外 +1 层数；改变 Panic 类型；无 SP 单位 -10% 正面概率；回合结束 -1（不叠加）。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Echoes of the Manor)",
+    "confidence": "high",
+    "todo": [
+      "50% 追加 Sinking Count 未实现（需要介入 add_status 的施加器）",
+      "Panic 类型 / Panic 效果未实现",
+      "无 SP 单位 -10% 正面概率未实现（需要修改 flip）"
+    ]
   },
+
   "dazzle": {
     "name_cn": "眩惑",
     "name_en": "Dazzle",
     "has_potency": false,
     "has_count": true,
-    "damage_taken_mult_per_count": 0.05,
-    "description": "目灯虫相关。每层使受到伤害 +5%。",
-    "hooks": [],
-    "source": "格里高尔 脑叶公司 E.G.O::目灯",
-    "confidence": "low"
-  },
-  "shadow_crack": {
-    "name_cn": "影之龟裂",
-    "name_en": "Shadow Crack",
-    "has_potency": false,
-    "has_count": true,
-    "damage_taken_mult_per_count": 0.05,
-    "description": "LCA 奥相关。每层使受到伤害 +10%。",
-    "hooks": [],
-    "source": "奥提斯 LCA 瓦吉特先锋三队队长",
-    "confidence": "low"
-  },
-  "timegap": {
-    "name_cn": "时隙",
-    "name_en": "Time Gap",
-    "has_potency": false,
-    "has_count": true,
-    "damage_taken_mult_per_count": 0.05,
     "turn_end_count_decay": 1,
-    "description": "罗生蝶形态切换时获得的易伤。每层使受到伤害 +10%，回合结束 -1 层。",
+    "not_cumulative": true,
+    "description": "每 1 点 (Sinking + Burn) 使**基础攻击技能**伤害 +0.5%（上限 10%）；无 SP 单位 Defense Level -2；回合结束 -1。",
+    "dynamic_damage_taken_per_sinking_and_burn": 0.005,
     "hooks": [],
-    "source": "折射轨道6号线-第五区段（罗生蝶形态被动）",
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Dazzle)",
+    "confidence": "high",
+    "todo": ["当前未接入「基础攻击技能限定 + 上限 10%」（需要在 damage 里按技能标签判定）"]
+  },
+
+  "sheut_fracture": {
+    "name_cn": "影之龟裂",
+    "name_en": "Sheut Fracture",
+    "has_potency": false,
+    "has_count": true,
+    "max_count": 10,
+    "description": "每层使受到 Sloth/Gloom 伤害 +1%；满层时获得 1 Gloom Fragility、受到等同 Sinking Potency 的 Gloom 伤害、Sinking Count -1，然后消失。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Sheut Fracture)",
+    "confidence": "high",
+    "todo": ["满层爆发未实现"]
+  },
+
+  "blue_sand": {
+    "name_cn": "青沙",
+    "name_en": "Blue Sand",
+    "has_potency": false,
+    "has_count": true,
+    "turn_end_count_decay": 1,
+    "not_cumulative": true,
+    "description": "拼点失败时 +1 Sinking Count（每回合 3 次）；无 SP 单位 Speed ±1；回合结束 -1。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Blue Sand)",
+    "confidence": "high",
+    "todo": ["触发与速度修正未实现"]
+  },
+
+  "blessing": {
+    "name_cn": "加护",
+    "name_en": "Blessing",
+    "has_potency": false,
+    "has_count": true,
+    "description": "回合开始每 8 SP 获得 1 Protecting Sword（上限 5）；拼点结束时施加 2 Sinking（每回合 1 次）；被命中时对攻击者施加 2 Sinking（每回合 1 次）；每 20 SP 额外 +1 Sinking Potency（上限 2）。",
+    "hooks": [
+      {"when": "turn_start",
+       "kind": "branch",
+       "branch_if": {"sp": {"who": "self", "gte": 8}},
+       "then": [{"kind": "add_status", "key": "protecting_sword", "count": 1,
+                 "target": "self", "max_count": 5}]},
+      {"when": "on_hit",
+       "kind": "add_status", "key": "sinking", "potency": 2, "count": 0, "target": "other",
+       "if": {"chance": 1.0}}
+    ],
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Blessing)",
+    "confidence": "medium",
+    "todo": ["每回合 1 次限制与 SP 分档未实现"]
+  },
+
+  "protecting_sword": {
+    "name_cn": "加护之剑",
+    "name_en": "Protecting Sword",
+    "has_potency": false,
+    "has_count": true,
+    "description": "罗佳「泪锋之剑」的加护层数（具体效果待校验）。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Blessing)",
     "confidence": "low"
   },
-  "strong": {
-    "name_cn": "强壮",
-    "name_en": "Power Up",
+
+  "bind": {
+    "name_cn": "束缚",
+    "name_en": "Bind",
+    "has_potency": false,
+    "has_count": true,
+    "description": "速度降低（具体数值待校验）。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Battles (Skill Tags / Status)",
+    "confidence": "low"
+  },
+
+  "curse": {
+    "name_cn": "咒诅",
+    "name_en": "Curse",
+    "has_potency": false,
+    "has_count": true,
+    "description": "李箱「往昔」/「庄严哀悼」相关。具体效果待校验。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Bygone Days Ishmael",
+    "confidence": "low"
+  },
+
+  "the_uninvited": {
+    "name_cn": "不速之客",
+    "name_en": "The Uninvited",
+    "has_potency": false,
+    "has_count": true,
+    "max_count": 2,
+    "description": "每点自身 Sinking 使受到伤害 +0.5%（上限 10%）；死亡时最后攻击者回复 3 SP；回合结束 -1。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (The Uninvited)",
+    "confidence": "high",
+    "todo": ["伤害加成与死亡传递未实现"]
+  },
+
+  "tremor": {
+    "name_cn": "振动",
+    "name_en": "Tremor",
     "has_potency": true,
     "has_count": true,
-    "offense_level_per_count": 1,
-    "description": "每层攻击等级 +1（影响伤害，影响拼点的部分由 config.clash_level_bonus_per_3 控制）。",
+    "description": "本实验只用到 Tremor Burst 触发（具体爆发效果待校验）。",
     "hooks": [],
-    "source": "通用状态",
-    "confidence": "medium"
+    "source": "https://limbuscompany.wiki.gg/wiki/Sinking (Tremor Burst 相关)",
+    "confidence": "low"
   },
+
+  "gloom_fragility": {
+    "name_cn": "忧郁脆弱",
+    "name_en": "Gloom Fragility",
+    "has_potency": false,
+    "has_count": true,
+    "description": "受到 Gloom 伤害提升（具体数值待校验）。",
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula (Resist Down)",
+    "confidence": "low"
+  },
+
   "fragile": {
     "name_cn": "脆弱",
     "name_en": "Fragile",
     "has_potency": false,
     "has_count": true,
-    "damage_taken_mult_per_count": 0.05,
-    "description": "每层使受到伤害 +10%。",
+    "damage_taken_mult_per_count": 0.1,
+    "description": "每层使受到伤害 +10%（动态修正，wiki: 2 层 = +20%）。",
     "hooks": [],
-    "source": "通用状态",
-    "confidence": "medium"
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
+    "confidence": "high"
   },
+
   "protect": {
     "name_cn": "保护",
     "name_en": "Protection",
@@ -253,39 +206,86 @@
     "damage_taken_mult_per_count": -0.1,
     "description": "每层使受到伤害 -10%。",
     "hooks": [],
-    "source": "通用状态",
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
     "confidence": "medium"
   },
-  "offense_level_up": {
-    "name_cn": "攻击等级提升",
-    "name_en": "Offense Level Up",
+
+  "damage_up": {
+    "name_cn": "伤害提升",
+    "name_en": "Damage Up",
     "has_potency": false,
     "has_count": true,
-    "offense_level_per_count": 1,
+    "damage_dealt_mult_per_count": 0.1,
+    "description": "每层使造成伤害 +10%。",
     "hooks": [],
-    "source": "通用状态",
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
     "confidence": "medium"
   },
-  "offense_level_down": {
-    "name_cn": "攻击等级降低",
-    "name_en": "Offense Level Down",
+
+  "damage_down": {
+    "name_cn": "伤害降低",
+    "name_en": "Damage Down",
     "has_potency": false,
     "has_count": true,
-    "offense_level_per_count": -1,
+    "damage_dealt_mult_per_count": -0.1,
+    "description": "每层使造成伤害 -10%。",
     "hooks": [],
-    "source": "通用状态",
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
     "confidence": "medium"
   },
-  "clash_power_up": {
-    "name_cn": "拼点威力提升",
-    "name_en": "Clash Power Up",
-    "has_potency": false,
+
+  "poise": {
+    "name_cn": "呼吸",
+    "name_en": "Poise",
+    "has_potency": true,
     "has_count": true,
-    "clash_power_per_count": 1,
+    "description": "暴击相关（Imago 机制核心之一）。暴击概率 = Poise 强度，具体公式待校验。",
     "hooks": [],
-    "source": "通用状态",
+    "source": "https://limbuscompany.wiki.gg/wiki/Butterfly of Entangled Lives 羅生蝶/Enemy/Butterfly of Entangled Lives::Imago",
+    "confidence": "low",
+    "todo": ["暴击判定与 Crit 静态修正未实现"]
+  },
+
+  "burn": {
+    "name_cn": "燃烧",
+    "name_en": "Burn",
+    "has_potency": true,
+    "has_count": true,
+    "description": "回合结束受到等同强度的 HP 伤害，层数 -1（具体数值与触发口径待校验）。",
+    "hooks": [
+      {"when": "turn_end",
+       "if": {"status": {"key": "burn", "who": "self", "potency_gte": 1, "count_gte": 1}},
+       "kind": "deal_damage",
+       "from_status": {"key": "burn", "field": "potency", "who": "self"},
+       "target": "self", "origin": "burn", "counter": "burn_damage", "flat": true},
+      {"when": "turn_end",
+       "if": {"status": {"key": "burn", "who": "self", "count_gte": 1}},
+       "kind": "add_status", "key": "burn", "count": -1, "target": "self"}
+    ],
+    "source": "https://limbuscompany.wiki.gg/wiki/Burn",
     "confidence": "medium"
   },
+
+  "bleed": {
+    "name_cn": "出血",
+    "name_en": "Bleed",
+    "has_potency": true,
+    "has_count": true,
+    "description": "使用攻击技能时受到等同强度的 HP 伤害，层数 -1（触发口径待校验）。",
+    "hooks": [
+      {"when": "on_use",
+       "if": {"status": {"key": "bleed", "who": "self", "potency_gte": 1, "count_gte": 1}},
+       "kind": "deal_damage",
+       "from_status": {"key": "bleed", "field": "potency", "who": "self"},
+       "target": "self", "origin": "bleed", "counter": "bleed_damage", "flat": true},
+      {"when": "on_use",
+       "if": {"status": {"key": "bleed", "who": "self", "count_gte": 1}},
+       "kind": "add_status", "key": "bleed", "count": -1, "target": "self"}
+    ],
+    "source": "https://limbuscompany.wiki.gg/wiki/Bleed",
+    "confidence": "medium"
+  },
+
   "rupture": {
     "name_cn": "破裂",
     "name_en": "Rupture",
@@ -293,190 +293,93 @@
     "has_count": true,
     "description": "命中时受到等同强度的 HP 伤害，层数 -1。",
     "hooks": [
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "rupture",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "deal_damage",
-        "from_status": {
-          "key": "rupture",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "origin": "rupture",
-        "counter": "rupture_damage"
-      },
-      {
-        "when": "on_hit",
-        "if": {
-          "status": {
-            "key": "rupture",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "add_status",
-        "key": "rupture",
-        "count": -1,
-        "target": "self"
-      }
+      {"when": "on_hit",
+       "if": {"status": {"key": "rupture", "who": "self", "potency_gte": 1, "count_gte": 1}},
+       "kind": "deal_damage",
+       "from_status": {"key": "rupture", "field": "potency", "who": "self"},
+       "target": "self", "origin": "rupture", "counter": "rupture_damage", "flat": true},
+      {"when": "on_hit",
+       "if": {"status": {"key": "rupture", "who": "self", "count_gte": 1}},
+       "kind": "add_status", "key": "rupture", "count": -1, "target": "self"}
     ],
-    "source": "通用状态",
+    "source": "https://limbuscompany.wiki.gg/wiki/Rupture",
     "confidence": "medium"
   },
-  "bleed": {
-    "name_cn": "出血",
-    "name_en": "Bleed",
-    "has_potency": true,
-    "has_count": true,
-    "description": "使用攻击技能时，受到等同强度的 HP 伤害，层数 -1。",
-    "hooks": [
-      {
-        "when": "on_use",
-        "if": {
-          "status": {
-            "key": "bleed",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "deal_damage",
-        "from_status": {
-          "key": "bleed",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "origin": "bleed",
-        "counter": "bleed_damage"
-      },
-      {
-        "when": "on_use",
-        "if": {
-          "status": {
-            "key": "bleed",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "add_status",
-        "key": "bleed",
-        "count": -1,
-        "target": "self"
-      }
-    ],
-    "source": "通用状态",
-    "confidence": "medium"
-  },
-  "burn": {
-    "name_cn": "燃烧",
-    "name_en": "Burn",
-    "has_potency": true,
-    "has_count": true,
-    "description": "回合结束时受到等同强度的 HP 伤害，层数 -1。",
-    "hooks": [
-      {
-        "when": "turn_end",
-        "if": {
-          "status": {
-            "key": "burn",
-            "who": "self",
-            "potency_gte": 1,
-            "count_gte": 1
-          }
-        },
-        "kind": "deal_damage",
-        "from_status": {
-          "key": "burn",
-          "field": "potency",
-          "who": "self"
-        },
-        "target": "self",
-        "origin": "burn",
-        "counter": "burn_damage"
-      },
-      {
-        "when": "turn_end",
-        "if": {
-          "status": {
-            "key": "burn",
-            "who": "self",
-            "count_gte": 1
-          }
-        },
-        "kind": "add_status",
-        "key": "burn",
-        "count": -1,
-        "target": "self"
-      }
-    ],
-    "source": "通用状态",
-    "confidence": "medium"
-  },
-  "tremor": {
-    "name_cn": "振动",
-    "name_en": "Tremor",
+
+  "offense_level_up": {
+    "name_cn": "攻击等级提升",
+    "name_en": "Offense Level Up",
     "has_potency": false,
     "has_count": true,
+    "offense_level_per_count": 1,
     "hooks": [],
-    "source": "通用状态（本实验只做占位，不实现振动爆发）",
-    "confidence": "low"
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
+    "confidence": "high"
   },
-  "despair": {
-    "name_cn": "绝望",
-    "name_en": "Despair",
-    "has_potency": true,
-    "has_count": true,
-    "damage_dealt_mult_per_count": 0.1,
-    "description": "绝望罗相关。每层使造成伤害 +10%。",
-    "hooks": [],
-    "source": "罗佳 脑叶公司 E.G.O::泪锋之剑",
-    "confidence": "low"
-  },
-  "blessing": {
-    "name_cn": "加护",
-    "name_en": "Blessing",
+
+  "offense_level_down": {
+    "name_cn": "攻击等级降低",
+    "name_en": "Offense Level Down",
     "has_potency": false,
     "has_count": true,
-    "damage_taken_mult_per_count": -0.1,
+    "offense_level_per_count": -1,
     "hooks": [],
-    "source": "罗佳 脑叶公司 E.G.O::泪锋之剑",
-    "confidence": "low"
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
+    "confidence": "high"
   },
-  "past": {
+
+  "defense_level_down": {
+    "name_cn": "防御等级降低",
+    "name_en": "Defense Level Down",
+    "has_potency": false,
+    "has_count": true,
+    "defense_level_per_count": -1,
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
+    "confidence": "high"
+  },
+
+  "clash_power_up": {
+    "name_cn": "拼点威力提升",
+    "name_en": "Clash Power Up",
+    "has_potency": false,
+    "has_count": true,
+    "clash_power_per_count": 1,
+    "hooks": [],
+    "source": "https://limbuscompany.wiki.gg/wiki/Damage Formula",
+    "confidence": "high"
+  },
+
+  "in_the_past": {
     "name_cn": "过去",
-    "name_en": "Past",
+    "name_en": "In the Past",
     "has_potency": false,
     "has_count": true,
-    "description": "罗生蝶的状态栈之一。由攻击「过去的幻影」逐枚硬币削减，由未被作为主要目标攻击的幻影在回合结束回补。",
+    "description": "Imago 的状态栈：技能按 (In the Past × N)% 提升伤害；拼点胜利 +5，拼点失败减半。",
     "hooks": [],
-    "source": "折射轨道6号线-第五区段",
-    "confidence": "low"
+    "source": "https://limbuscompany.wiki.gg/wiki/Butterfly of Entangled Lives 羅生蝶/Enemy/Butterfly of Entangled Lives::Imago",
+    "confidence": "verified"
   },
-  "present": {
+
+  "in_the_present": {
     "name_cn": "现在",
-    "name_en": "Present",
+    "name_en": "In the Present",
     "has_potency": false,
     "has_count": true,
+    "description": "Imago 的状态栈（同上）。",
     "hooks": [],
-    "source": "折射轨道6号线-第五区段",
-    "confidence": "low"
+    "source": "https://limbuscompany.wiki.gg/wiki/Butterfly of Entangled Lives 羅生蝶/Enemy/Butterfly of Entangled Lives::Imago",
+    "confidence": "verified"
   },
-  "future": {
+
+  "in_the_future": {
     "name_cn": "未来",
-    "name_en": "Future",
+    "name_en": "In the Future",
     "has_potency": false,
     "has_count": true,
+    "description": "Imago 的状态栈（同上）。",
     "hooks": [],
-    "source": "折射轨道6号线-第五区段",
-    "confidence": "low"
+    "source": "https://limbuscompany.wiki.gg/wiki/Butterfly of Entangled Lives 羅生蝶/Enemy/Butterfly of Entangled Lives::Imago",
+    "confidence": "verified"
   }
 }

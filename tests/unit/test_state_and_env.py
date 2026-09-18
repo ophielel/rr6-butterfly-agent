@@ -23,9 +23,9 @@ class TestDeterminism(unittest.TestCase):
         self.assertEqual(a["battle"].state.hash(), b["battle"].state.hash())
 
     def test_coin_script_is_deterministic(self):
-        sk = make_skill("t_dt1", coins=1, power=10, damage=10)
+        sk = make_skill("t_dt1", coins=1, power=10, damage=0, base_power=5)
         a = make_unit("a", Side.ALLY)
-        for expected_heads, expected_damage in ((True, 20), (False, 10)):
+        for expected_heads, expected_damage in ((True, 15), (False, 5)):
             e = make_unit("e", Side.ENEMY, hp=999)
             cfg = SimConfig(coin_mode="script", coin_script=[expected_heads])
             b = make_battle([a], [e], cfg)
