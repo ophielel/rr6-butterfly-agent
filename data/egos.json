@@ -1,0 +1,666 @@
+{
+  "_meta": {
+    "purpose": "本实验涉及的 E.G.O（觉醒 / 侵蚀两套形态 + 使用后罪孽抗性覆盖）。",
+    "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
+    "wiki_accessible": false,
+    "note": "「庄严哀悼」与「和声」的重复硬币条件是本次实验的核心；具体触发阈值必须对照游戏内文本校验。",
+    "resist_override_format": "{\"_all_from_sin\": \"gloom\"} 表示使用后本回合内所有罪孽伤害按忧郁抗性结算。"
+  },
+  "egos": [
+    {
+      "eid": "solemn_lament_yisang",
+      "name": "庄严哀悼",
+      "owner": "solemn_yisang",
+      "grade": "HE",
+      "sin": "gloom",
+      "sp_cost": 25,
+      "corrosion_sp_cost": 35,
+      "resist_override": {
+        "_all_from_sin": "gloom"
+      },
+      "awakening": {
+        "sid": "ego_solemn_lament_yisang",
+        "name": "庄严哀悼（觉醒）",
+        "sin": "gloom",
+        "damage_type": "blunt",
+        "base_power": 6,
+        "coin_count": 4,
+        "coin": {
+          "kind": "positive",
+          "power": 5,
+          "damage": 30,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "dead_butterfly",
+              "potency": 2,
+              "count": 2,
+              "target": "other"
+            },
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 2,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "sum_status",
+            "of": [
+              {
+                "key": "sinking",
+                "field": "potency",
+                "who": "other"
+              }
+            ],
+            "per": 10,
+            "max": 2,
+            "then": [
+              {
+                "kind": "repeat_coin",
+                "times": 1,
+                "all_coins": true
+              }
+            ]
+          }
+        ],
+        "owner": "solemn_yisang",
+        "description": "[使用时] 目标每有 3 级沉沦强度，此技能所有硬币重复投掷 1 次（最多 2 次）。",
+        "confidence": "low"
+      },
+      "corrosion": {
+        "sid": "ego_solemn_lament_yisang_c",
+        "name": "庄严哀悼（侵蚀）",
+        "sin": "gloom",
+        "damage_type": "blunt",
+        "base_power": 8,
+        "coin_count": 4,
+        "coin": {
+          "kind": "positive",
+          "power": 5,
+          "damage": 34,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "dead_butterfly",
+              "potency": 3,
+              "count": 2,
+              "target": "other"
+            },
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 3,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "sum_status",
+            "of": [
+              {
+                "key": "sinking",
+                "field": "potency",
+                "who": "other"
+              }
+            ],
+            "per": 10,
+            "max": 2,
+            "then": [
+              {
+                "kind": "repeat_coin",
+                "times": 1,
+                "all_coins": true
+              }
+            ]
+          }
+        ],
+        "owner": "solemn_yisang",
+        "confidence": "low"
+      },
+      "description": "亡蝶葬仪系 E.G.O。沉沦强度越高，硬币重复投掷次数越多。",
+      "source": "https://limbuscompany.huijiwiki.com/wiki/庄严哀悼-李箱",
+      "confidence": "low"
+    },
+    {
+      "eid": "yesteryear_yisang",
+      "name": "往昔",
+      "owner": "solemn_yisang",
+      "grade": "TETH",
+      "sin": "sloth",
+      "sp_cost": 15,
+      "corrosion_sp_cost": 22,
+      "resist_override": {
+        "_all_from_sin": "sloth"
+      },
+      "awakening": {
+        "sid": "ego_yesteryear_yisang",
+        "name": "往昔（觉醒）",
+        "sin": "sloth",
+        "damage_type": "slash",
+        "base_power": 5,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 24,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 2,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "status": {
+                "key": "sinking",
+                "who": "other",
+                "potency_gte": 3
+              }
+            },
+            "then": [
+              {
+                "kind": "add_status",
+                "key": "fragile",
+                "count": 2,
+                "target": "other"
+              }
+            ]
+          }
+        ],
+        "owner": "solemn_yisang",
+        "confidence": "low"
+      },
+      "corrosion": {
+        "sid": "ego_yesteryear_yisang_c",
+        "name": "往昔（侵蚀）",
+        "sin": "sloth",
+        "damage_type": "slash",
+        "base_power": 6,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 28,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 3,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "status": {
+                "key": "sinking",
+                "who": "other",
+                "potency_gte": 3
+              }
+            },
+            "then": [
+              {
+                "kind": "add_status",
+                "key": "fragile",
+                "count": 2,
+                "target": "other"
+              }
+            ]
+          }
+        ],
+        "owner": "solemn_yisang",
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.huijiwiki.com/wiki/往昔-李箱",
+      "confidence": "low"
+    },
+    {
+      "eid": "solemn_lament_gregor",
+      "name": "庄严哀悼",
+      "owner": "lantern_gregor",
+      "grade": "HE",
+      "sin": "gloom",
+      "sp_cost": 25,
+      "corrosion_sp_cost": 35,
+      "resist_override": {
+        "_all_from_sin": "gloom"
+      },
+      "awakening": {
+        "sid": "ego_solemn_lament_gregor",
+        "name": "庄严哀悼（觉醒）",
+        "sin": "gloom",
+        "damage_type": "pierce",
+        "base_power": 6,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 5,
+          "damage": 30,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "butterfly",
+              "potency": 2,
+              "count": 3,
+              "target": "other"
+            },
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 1,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "sum_status",
+            "of": [
+              {
+                "key": "sinking",
+                "field": "potency",
+                "who": "other"
+              }
+            ],
+            "per": 10,
+            "max": 2,
+            "then": [
+              {
+                "kind": "repeat_coin",
+                "times": 1,
+                "all_coins": true
+              }
+            ]
+          }
+        ],
+        "owner": "lantern_gregor",
+        "confidence": "low"
+      },
+      "corrosion": {
+        "sid": "ego_solemn_lament_gregor_c",
+        "name": "庄严哀悼（侵蚀）",
+        "sin": "gloom",
+        "damage_type": "pierce",
+        "base_power": 8,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 5,
+          "damage": 34,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "butterfly",
+              "potency": 3,
+              "count": 3,
+              "target": "other"
+            },
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 2,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "sum_status",
+            "of": [
+              {
+                "key": "sinking",
+                "field": "potency",
+                "who": "other"
+              }
+            ],
+            "per": 10,
+            "max": 2,
+            "then": [
+              {
+                "kind": "repeat_coin",
+                "times": 1,
+                "all_coins": true
+              }
+            ]
+          }
+        ],
+        "owner": "lantern_gregor",
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.huijiwiki.com/wiki/庄严哀悼-格里高尔",
+      "confidence": "low"
+    },
+    {
+      "eid": "yesteryear_ishmael",
+      "name": "往昔",
+      "owner": "hanafuda_ishmael",
+      "grade": "TETH",
+      "sin": "sloth",
+      "sp_cost": 15,
+      "corrosion_sp_cost": 22,
+      "resist_override": {
+        "_all_from_sin": "sloth"
+      },
+      "awakening": {
+        "sid": "ego_yesteryear_ishmael",
+        "name": "往昔（觉醒）",
+        "sin": "sloth",
+        "damage_type": "pierce",
+        "base_power": 5,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 24,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 2,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "owner": "hanafuda_ishmael",
+        "confidence": "low"
+      },
+      "corrosion": {
+        "sid": "ego_yesteryear_ishmael_c",
+        "name": "往昔（侵蚀）",
+        "sin": "sloth",
+        "damage_type": "pierce",
+        "base_power": 6,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 28,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 3,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "owner": "hanafuda_ishmael",
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.huijiwiki.com/wiki/往昔-以实玛利",
+      "confidence": "low"
+    },
+    {
+      "eid": "harmony_sinclair",
+      "name": "和声",
+      "owner": "band_sinclair",
+      "grade": "HE",
+      "sin": "gloom",
+      "sp_cost": 25,
+      "corrosion_sp_cost": 35,
+      "resist_override": {
+        "_all_from_sin": "gloom"
+      },
+      "awakening": {
+        "sid": "ego_harmony_sinclair",
+        "name": "和声（觉醒）",
+        "sin": "gloom",
+        "damage_type": "blunt",
+        "base_power": 7,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 6,
+          "damage": 30,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "fragile",
+              "count": 1,
+              "target": "other"
+            },
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 1,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "resource": {
+                "key": "harmony",
+                "who": "self",
+                "gte": 3
+              }
+            },
+            "then": [
+              {
+                "kind": "consume_resource",
+                "key": "harmony",
+                "amount": 3
+              },
+              {
+                "kind": "repeat_coin",
+                "times": 1,
+                "all_coins": true
+              }
+            ]
+          }
+        ],
+        "owner": "band_sinclair",
+        "description": "[使用时] 消耗 3 层和声，此技能所有硬币重复投掷 1 次。",
+        "confidence": "low"
+      },
+      "corrosion": {
+        "sid": "ego_harmony_sinclair_c",
+        "name": "和声（侵蚀）",
+        "sin": "gloom",
+        "damage_type": "blunt",
+        "base_power": 9,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 6,
+          "damage": 34,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "fragile",
+              "count": 2,
+              "target": "other"
+            },
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 2,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "resource": {
+                "key": "harmony",
+                "who": "self",
+                "gte": 3
+              }
+            },
+            "then": [
+              {
+                "kind": "consume_resource",
+                "key": "harmony",
+                "amount": 3
+              },
+              {
+                "kind": "repeat_coin",
+                "times": 1,
+                "all_coins": true
+              }
+            ]
+          }
+        ],
+        "owner": "band_sinclair",
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.huijiwiki.com/wiki/和声-辛克莱",
+      "confidence": "low"
+    },
+    {
+      "eid": "frost_claw_rodion",
+      "name": "冰结之爪",
+      "owner": "despair_rodion",
+      "grade": "TETH",
+      "sin": "gloom",
+      "sp_cost": 15,
+      "corrosion_sp_cost": 22,
+      "resist_override": {
+        "_all_from_sin": "gloom"
+      },
+      "awakening": {
+        "sid": "ego_frost_claw_rodion",
+        "name": "冰结之爪（觉醒）",
+        "sin": "gloom",
+        "damage_type": "pierce",
+        "base_power": 7,
+        "coin_count": 2,
+        "coin": {
+          "kind": "negative",
+          "power": 6,
+          "damage": 28,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 3,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "status": {
+                "key": "sinking",
+                "who": "other",
+                "count_gte": 3
+              }
+            },
+            "then": [
+              {
+                "kind": "add_status",
+                "key": "fragile",
+                "count": 2,
+                "target": "other"
+              }
+            ]
+          }
+        ],
+        "owner": "despair_rodion",
+        "confidence": "low"
+      },
+      "corrosion": {
+        "sid": "ego_frost_claw_rodion_c",
+        "name": "冰结之爪（侵蚀）",
+        "sin": "gloom",
+        "damage_type": "pierce",
+        "base_power": 9,
+        "coin_count": 2,
+        "coin": {
+          "kind": "negative",
+          "power": 6,
+          "damage": 32,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 4,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "status": {
+                "key": "sinking",
+                "who": "other",
+                "count_gte": 3
+              }
+            },
+            "then": [
+              {
+                "kind": "add_status",
+                "key": "fragile",
+                "count": 2,
+                "target": "other"
+              }
+            ]
+          }
+        ],
+        "owner": "despair_rodion",
+        "confidence": "low"
+      },
+      "source": "https://limbuscompany.huijiwiki.com/wiki/冰结之爪-罗佳",
+      "confidence": "low"
+    }
+  ]
+}

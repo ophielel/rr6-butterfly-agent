@@ -1,0 +1,66 @@
+# RR6 罗生蝶实验主配置（对应计划书 §21）
+#
+# 「无限罪孽资源」不等于「无代价」：SP 消耗、侵蚀、E.G.O 抗性覆盖全部保留。
+# （计划书 §21 里的 resources: sin_resources: infinite 在本实现中就是
+#   sin_resources: infinite 这一个字段，其余字段始终为真，不做开关。）
+
+# 随机性阶段（计划书 §10）
+coin_mode: rng                # always_heads / always_tails / script / rng
+speed_mode: rng               # fixed / rng
+skill_draw_mode: rng          # fixed / rng
+boss_ai: script               # script / greedy / random / none
+deterministic: false          # true = 一键关掉速度/硬币/技能抽取随机性
+
+# 数值规则
+san_per_point: 0.01           # P(正面) = 0.5 + SP * san_per_point
+level_diff_damage_per_level: 0.03
+clash_level_bonus_per_3: 0.0  # 保守默认：攻击等级暂不影响拼点威力（待校验）
+clash_coin_carryover: true    # 拼点胜利后，已翻出硬币的正反沿用到伤害阶段
+clash_model: advance          # advance / reflex（两种社区理解，见 docs）
+coin_power_adds_damage: true  # 伤害 = 硬币伤害 +（有利面时的）硬币威力
+clash_tie_destroys_both: true
+clash_same_slot: true         # 仅互相指定同一槽位才拼点
+enforce_redirect_speed: true  # 改目标需要速度更高
+clash_win_sp_gain: 1
+clash_lose_sp_loss: 0
+ally_death_sp_loss: -10
+stagger_damage_taken_mult: 1.5
+stagger_lasts_next_turn: true
+guard_damage_mult: 0.5
+
+# 难度 / 尺度
+boss_hp: 25616                # 中文 Wiki 记录的本体 HP
+boss_hp_scale: 0.5            # 本实验按比例压缩回合尺度（见 docs/mechanics_notes.md）
+ally_sp: 30                   # 第五区段开局状态由配置注入（计划书 §1）
+ally_hp_pct: 1.0
+max_turns: 20
+
+# 罗生蝶机制
+phantom_damage_transfer: 1.0
+phantom_stack_decay_per_coin: 1
+phantom_restore_amount: 2
+hp_threshold_stack_bonus: 2
+form_switch_timegap: 2
+phantom_broken_turns: 1
+phantom_acts: true
+status_hooks_enabled: true
+
+# 资源与消融开关（计划书 §17 / §21）
+sin_resources: infinite
+corrosion_enabled: true
+ego_resistance_override: true
+ego_passives_enabled: true
+sinking_enabled: true
+butterfly_special_sinking: true
+repeat_coin_enabled: true
+max_repeat_per_coin: 4
+disabled_egos: []
+disabled_identities: []
+disabled_rr6_passives: []
+encounter_buffs: {}
+
+# 奖励（绝不奖励沉沦/重投本身，计划书 §14）
+reward_kill: 100.0
+reward_turn_penalty: -3.0
+reward_defeat: -100.0
+reward_hp_shaping: 0.0

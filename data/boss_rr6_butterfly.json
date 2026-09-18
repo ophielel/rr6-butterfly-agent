@@ -1,0 +1,435 @@
+{
+  "_meta": {
+    "purpose": "RR6 第五区段「折射的罗生蝶::蝶」+ 过去/现在/未来三幻影。",
+    "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
+    "wiki_accessible": false,
+    "wiki_reference": "https://limbuscompany.huijiwiki.com/wiki/折射轨道6号线-第五区段 （本机 403，无法直接抓取）",
+    "known_from_plan": "计划书记录本体 HP 25616；三套状态栈 + 三幻影 + 形态切换 + 混乱阈值。",
+    "assumptions": [
+      "幻影受击：每枚硬币削减对应状态栈 1 层（phantom_stack_decay_per_coin）。",
+      "幻影受到的伤害按 phantom_damage_transfer（默认 1.0）转移给本体。",
+      "幻影整回合未被作为主要目标攻击时，回合结束回补对应状态栈（phantom_restore_amount）。",
+      "形态 = 三套栈中最高的一个；形态变化时本体获得「时隙」层数（form_switch_timegap）。",
+      "本体 HP 跨过 stack_thresholds 时，三套状态栈同时补充（hp_threshold_stack_bonus）。",
+      "本体每回合开局回复 8 SP，避免沉沦一回合直接把它压到 -45。"
+    ],
+    "confidence": "low"
+  },
+  "initial_stacks": {
+    "past": 2,
+    "present": 2,
+    "future": 2
+  },
+  "boss": {
+    "uid": "boss",
+    "name": "折射的罗生蝶::蝶",
+    "kind": "boss",
+    "hp": 25616,
+    "sp": 0,
+    "offense_level": 50,
+    "defense_level": 50,
+    "speed_range": [
+      4,
+      8
+    ],
+    "slots": 2,
+    "stagger_thresholds_pct": [
+      0.9,
+      0.7,
+      0.47,
+      0.23
+    ],
+    "resistances": {
+      "slash": 1.0,
+      "pierce": 1.0,
+      "blunt": 1.0
+    },
+    "sin_resistances": {
+      "wrath": 1.0,
+      "lust": 1.0,
+      "sloth": 1.0,
+      "gluttony": 1.0,
+      "gloom": 1.0,
+      "pride": 1.0,
+      "envy": 1.0
+    },
+    "skill_pool": [
+      "bt_s1",
+      "bt_s2",
+      "bt_s3",
+      "bt_s4"
+    ],
+    "skill_script": [
+      "bt_s1",
+      "bt_s2",
+      "bt_s3",
+      "bt_s4"
+    ],
+    "target_mode": "spread",
+    "state": {
+      "form": "neutral",
+      "stack_thresholds_pct": [
+        0.78,
+        0.58,
+        0.39,
+        0.19
+      ],
+      "stack_threshold_index": 0
+    },
+    "passive_effects": [
+      {
+        "when": "turn_start",
+        "kind": "heal_sp",
+        "amount": 8,
+        "target": "self",
+        "rr6_passive": "sp_recovery"
+      },
+      {
+        "when": "turn_start",
+        "kind": "branch",
+        "branch_if": {
+          "hp_pct": {
+            "who": "self",
+            "lte": 0.5
+          }
+        },
+        "then": [
+          {
+            "kind": "add_status",
+            "key": "strong",
+            "potency": 1,
+            "count": 1,
+            "target": "self"
+          }
+        ],
+        "rr6_passive": "low_hp_power"
+      }
+    ],
+    "on_hp_threshold_effects": [
+      {
+        "kind": "add_status",
+        "key": "fragile",
+        "count": 2,
+        "target": "self"
+      }
+    ],
+    "skills": [
+      {
+        "sid": "bt_s1",
+        "name": "蝶之刃",
+        "sin": "wrath",
+        "damage_type": "slash",
+        "base_power": 5,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 18,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 2,
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "confidence": "low"
+      },
+      {
+        "sid": "bt_s2",
+        "name": "时间断层",
+        "sin": "gloom",
+        "damage_type": "blunt",
+        "base_power": 6,
+        "coin_count": 2,
+        "coin": {
+          "kind": "positive",
+          "power": 5,
+          "damage": 24,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "fragile",
+              "count": 2,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "form_is": "future"
+            },
+            "then": [
+              {
+                "kind": "modify_damage",
+                "amount": 6
+              }
+            ]
+          }
+        ],
+        "confidence": "low"
+      },
+      {
+        "sid": "bt_s3",
+        "name": "罗生之舞",
+        "sin": "pride",
+        "damage_type": "slash",
+        "base_power": 7,
+        "coin_count": 4,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 20,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "offense_level_down",
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "confidence": "low"
+      },
+      {
+        "sid": "bt_s4",
+        "name": "过去之影",
+        "sin": "envy",
+        "damage_type": "pierce",
+        "base_power": 6,
+        "coin_count": 3,
+        "coin": {
+          "kind": "positive",
+          "power": 4,
+          "damage": 19,
+          "effects": [
+            {
+              "when": "on_hit",
+              "kind": "add_status",
+              "key": "sinking",
+              "potency": 3,
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        "effects": [
+          {
+            "when": "on_use",
+            "kind": "branch",
+            "branch_if": {
+              "form_is": "past"
+            },
+            "then": [
+              {
+                "kind": "add_stack",
+                "time": "all",
+                "amount": 1
+              }
+            ]
+          }
+        ],
+        "confidence": "low"
+      }
+    ],
+    "source": "https://limbuscompany.huijiwiki.com/wiki/折射轨道6号线-第五区段",
+    "confidence": "low"
+  },
+  "phantoms": [
+    {
+      "uid": "phantom_past",
+      "name": "过去的幻影",
+      "kind": "phantom",
+      "time_type": "past",
+      "hp": 2000,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        2,
+        6
+      ],
+      "slots": 1,
+      "stagger_thresholds": [],
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 1.0,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "skill_pool": [
+        "ph_past_s1"
+      ],
+      "skill_script": [
+        "ph_past_s1"
+      ],
+      "target_mode": "random",
+      "skills": [
+        {
+          "sid": "ph_past_s1",
+          "name": "过去的回响",
+          "sin": "sloth",
+          "damage_type": "slash",
+          "base_power": 4,
+          "coin_count": 2,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 12,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 1,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        }
+      ]
+    },
+    {
+      "uid": "phantom_present",
+      "name": "现在的幻影",
+      "kind": "phantom",
+      "time_type": "present",
+      "hp": 2000,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        2,
+        6
+      ],
+      "slots": 1,
+      "stagger_thresholds": [],
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 1.0,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "skill_pool": [
+        "ph_present_s1"
+      ],
+      "skill_script": [
+        "ph_present_s1"
+      ],
+      "target_mode": "random",
+      "skills": [
+        {
+          "sid": "ph_present_s1",
+          "name": "现在的回响",
+          "sin": "gluttony",
+          "damage_type": "pierce",
+          "base_power": 4,
+          "coin_count": 2,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 12,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "fragile",
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        }
+      ]
+    },
+    {
+      "uid": "phantom_future",
+      "name": "未来的幻影",
+      "kind": "phantom",
+      "time_type": "future",
+      "hp": 2000,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        2,
+        6
+      ],
+      "slots": 1,
+      "stagger_thresholds": [],
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 1.0,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "skill_pool": [
+        "ph_future_s1"
+      ],
+      "skill_script": [
+        "ph_future_s1"
+      ],
+      "target_mode": "random",
+      "skills": [
+        {
+          "sid": "ph_future_s1",
+          "name": "未来的回响",
+          "sin": "pride",
+          "damage_type": "blunt",
+          "base_power": 4,
+          "coin_count": 2,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 12,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "offense_level_down",
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        }
+      ]
+    }
+  ]
+}

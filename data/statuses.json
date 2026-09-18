@@ -1,0 +1,482 @@
+{
+  "_meta": {
+    "purpose": "状态定义表。每条状态都带 source / confidence 字段，见 docs/sources.md 与 docs/verification_checklist.md。",
+    "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
+    "wiki_accessible": false,
+    "wiki_blocked_note": "本机访问 huijiwiki 返回 403，以下数值为按游戏机制结构 + 记忆重建，必须逐条对照游戏内文本校验。",
+    "effect_format": "每条 hook = 效果 dict + when 时点 + 可选 if 条件，见 docs/mechanics_notes.md"
+  },
+  "sinking": {
+    "name_cn": "沉沦",
+    "name_en": "Sinking",
+    "has_potency": true,
+    "has_count": true,
+    "description": "命中时，目标失去等同于强度的精神力，层数 -1。",
+    "hooks": [
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "sinking",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "lose_sp",
+        "from_status": {
+          "key": "sinking",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "counter": "sinking_sp_damage"
+      },
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "sinking",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "add_status",
+        "key": "sinking",
+        "count": -1,
+        "target": "self"
+      }
+    ],
+    "source": "https://limbuscompany.huijiwiki.com/wiki/技能与拼点 (沉沦定义)",
+    "confidence": "medium"
+  },
+  "butterfly": {
+    "name_cn": "蝶",
+    "name_en": "Butterfly",
+    "has_potency": true,
+    "has_count": true,
+    "description": "RR6 罗生蝶相关状态。命中时按强度同时造成精神力与 HP 伤害（消融 G 可关闭特殊部分，只留普通伤害）。",
+    "hooks": [
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "butterfly",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "lose_sp",
+        "from_status": {
+          "key": "butterfly",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "counter": "butterfly_sp_damage"
+      },
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "butterfly",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "deal_damage",
+        "from_status": {
+          "key": "butterfly",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "origin": "butterfly",
+        "counter": "butterfly_hp_damage"
+      },
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "butterfly",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "add_status",
+        "key": "butterfly",
+        "count": -1,
+        "target": "self"
+      }
+    ],
+    "source": "https://limbuscompany.huijiwiki.com/wiki/蝶",
+    "confidence": "low"
+  },
+  "dead_butterfly": {
+    "name_cn": "亡蝶",
+    "name_en": "Dead Butterfly",
+    "has_potency": true,
+    "has_count": true,
+    "description": "蝶箱系 E.G.O 施加的标记。命中时按强度追加 HP 伤害并减少层数。",
+    "hooks": [
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "dead_butterfly",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "deal_damage",
+        "from_status": {
+          "key": "dead_butterfly",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "origin": "dead_butterfly",
+        "counter": "dead_butterfly_damage"
+      },
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "dead_butterfly",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "add_status",
+        "key": "dead_butterfly",
+        "count": -1,
+        "target": "self"
+      }
+    ],
+    "source": "庄严哀悼 E.G.O 效果（李箱 / 格里高尔）",
+    "confidence": "low"
+  },
+  "manor_echo": {
+    "name_cn": "山庄的回响",
+    "name_en": "Echo of the Manor",
+    "has_potency": false,
+    "has_count": true,
+    "description": "回合结束时按层数造成精神力伤害。管家浮的沉沦体系组件。",
+    "hooks": [
+      {
+        "when": "turn_end",
+        "if": {
+          "status": {
+            "key": "manor_echo",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "lose_sp",
+        "from_status": {
+          "key": "manor_echo",
+          "field": "count",
+          "who": "self",
+          "mult": 2
+        },
+        "target": "self",
+        "counter": "echo_sp_damage"
+      }
+    ],
+    "source": "浮士德 呼啸山庄管家",
+    "confidence": "low"
+  },
+  "dazzle": {
+    "name_cn": "眩惑",
+    "name_en": "Dazzle",
+    "has_potency": false,
+    "has_count": true,
+    "damage_taken_mult_per_count": 0.05,
+    "description": "目灯虫相关。每层使受到伤害 +5%。",
+    "hooks": [],
+    "source": "格里高尔 脑叶公司 E.G.O::目灯",
+    "confidence": "low"
+  },
+  "shadow_crack": {
+    "name_cn": "影之龟裂",
+    "name_en": "Shadow Crack",
+    "has_potency": false,
+    "has_count": true,
+    "damage_taken_mult_per_count": 0.05,
+    "description": "LCA 奥相关。每层使受到伤害 +10%。",
+    "hooks": [],
+    "source": "奥提斯 LCA 瓦吉特先锋三队队长",
+    "confidence": "low"
+  },
+  "timegap": {
+    "name_cn": "时隙",
+    "name_en": "Time Gap",
+    "has_potency": false,
+    "has_count": true,
+    "damage_taken_mult_per_count": 0.05,
+    "turn_end_count_decay": 1,
+    "description": "罗生蝶形态切换时获得的易伤。每层使受到伤害 +10%，回合结束 -1 层。",
+    "hooks": [],
+    "source": "折射轨道6号线-第五区段（罗生蝶形态被动）",
+    "confidence": "low"
+  },
+  "strong": {
+    "name_cn": "强壮",
+    "name_en": "Power Up",
+    "has_potency": true,
+    "has_count": true,
+    "offense_level_per_count": 1,
+    "description": "每层攻击等级 +1（影响伤害，影响拼点的部分由 config.clash_level_bonus_per_3 控制）。",
+    "hooks": [],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "fragile": {
+    "name_cn": "脆弱",
+    "name_en": "Fragile",
+    "has_potency": false,
+    "has_count": true,
+    "damage_taken_mult_per_count": 0.05,
+    "description": "每层使受到伤害 +10%。",
+    "hooks": [],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "protect": {
+    "name_cn": "保护",
+    "name_en": "Protection",
+    "has_potency": false,
+    "has_count": true,
+    "damage_taken_mult_per_count": -0.1,
+    "description": "每层使受到伤害 -10%。",
+    "hooks": [],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "offense_level_up": {
+    "name_cn": "攻击等级提升",
+    "name_en": "Offense Level Up",
+    "has_potency": false,
+    "has_count": true,
+    "offense_level_per_count": 1,
+    "hooks": [],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "offense_level_down": {
+    "name_cn": "攻击等级降低",
+    "name_en": "Offense Level Down",
+    "has_potency": false,
+    "has_count": true,
+    "offense_level_per_count": -1,
+    "hooks": [],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "clash_power_up": {
+    "name_cn": "拼点威力提升",
+    "name_en": "Clash Power Up",
+    "has_potency": false,
+    "has_count": true,
+    "clash_power_per_count": 1,
+    "hooks": [],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "rupture": {
+    "name_cn": "破裂",
+    "name_en": "Rupture",
+    "has_potency": true,
+    "has_count": true,
+    "description": "命中时受到等同强度的 HP 伤害，层数 -1。",
+    "hooks": [
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "rupture",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "deal_damage",
+        "from_status": {
+          "key": "rupture",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "origin": "rupture",
+        "counter": "rupture_damage"
+      },
+      {
+        "when": "on_hit",
+        "if": {
+          "status": {
+            "key": "rupture",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "add_status",
+        "key": "rupture",
+        "count": -1,
+        "target": "self"
+      }
+    ],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "bleed": {
+    "name_cn": "出血",
+    "name_en": "Bleed",
+    "has_potency": true,
+    "has_count": true,
+    "description": "使用攻击技能时，受到等同强度的 HP 伤害，层数 -1。",
+    "hooks": [
+      {
+        "when": "on_use",
+        "if": {
+          "status": {
+            "key": "bleed",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "deal_damage",
+        "from_status": {
+          "key": "bleed",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "origin": "bleed",
+        "counter": "bleed_damage"
+      },
+      {
+        "when": "on_use",
+        "if": {
+          "status": {
+            "key": "bleed",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "add_status",
+        "key": "bleed",
+        "count": -1,
+        "target": "self"
+      }
+    ],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "burn": {
+    "name_cn": "燃烧",
+    "name_en": "Burn",
+    "has_potency": true,
+    "has_count": true,
+    "description": "回合结束时受到等同强度的 HP 伤害，层数 -1。",
+    "hooks": [
+      {
+        "when": "turn_end",
+        "if": {
+          "status": {
+            "key": "burn",
+            "who": "self",
+            "potency_gte": 1,
+            "count_gte": 1
+          }
+        },
+        "kind": "deal_damage",
+        "from_status": {
+          "key": "burn",
+          "field": "potency",
+          "who": "self"
+        },
+        "target": "self",
+        "origin": "burn",
+        "counter": "burn_damage"
+      },
+      {
+        "when": "turn_end",
+        "if": {
+          "status": {
+            "key": "burn",
+            "who": "self",
+            "count_gte": 1
+          }
+        },
+        "kind": "add_status",
+        "key": "burn",
+        "count": -1,
+        "target": "self"
+      }
+    ],
+    "source": "通用状态",
+    "confidence": "medium"
+  },
+  "tremor": {
+    "name_cn": "振动",
+    "name_en": "Tremor",
+    "has_potency": false,
+    "has_count": true,
+    "hooks": [],
+    "source": "通用状态（本实验只做占位，不实现振动爆发）",
+    "confidence": "low"
+  },
+  "despair": {
+    "name_cn": "绝望",
+    "name_en": "Despair",
+    "has_potency": true,
+    "has_count": true,
+    "damage_dealt_mult_per_count": 0.1,
+    "description": "绝望罗相关。每层使造成伤害 +10%。",
+    "hooks": [],
+    "source": "罗佳 脑叶公司 E.G.O::泪锋之剑",
+    "confidence": "low"
+  },
+  "blessing": {
+    "name_cn": "加护",
+    "name_en": "Blessing",
+    "has_potency": false,
+    "has_count": true,
+    "damage_taken_mult_per_count": -0.1,
+    "hooks": [],
+    "source": "罗佳 脑叶公司 E.G.O::泪锋之剑",
+    "confidence": "low"
+  },
+  "past": {
+    "name_cn": "过去",
+    "name_en": "Past",
+    "has_potency": false,
+    "has_count": true,
+    "description": "罗生蝶的状态栈之一。由攻击「过去的幻影」逐枚硬币削减，由未被作为主要目标攻击的幻影在回合结束回补。",
+    "hooks": [],
+    "source": "折射轨道6号线-第五区段",
+    "confidence": "low"
+  },
+  "present": {
+    "name_cn": "现在",
+    "name_en": "Present",
+    "has_potency": false,
+    "has_count": true,
+    "hooks": [],
+    "source": "折射轨道6号线-第五区段",
+    "confidence": "low"
+  },
+  "future": {
+    "name_cn": "未来",
+    "name_en": "Future",
+    "has_potency": false,
+    "has_count": true,
+    "hooks": [],
+    "source": "折射轨道6号线-第五区段",
+    "confidence": "low"
+  }
+}

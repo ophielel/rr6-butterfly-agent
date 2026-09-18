@@ -1,0 +1,30 @@
+[project]
+name = "rr6sim"
+version = "0.1.0"
+description = "《边狱巴士》RR6 罗生蝶「沉沦 + 重骰 E.G.O」策略涌现实验的确定性模拟器内核"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# 训练 / 搜索 / 可视化阶段才需要
+train = ["numpy", "torch", "gymnasium", "matplotlib", "pandas"]
+dev = ["pyyaml"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# 本仓库不依赖 Rust / 不依赖第三方运行时库：
+#   * 模拟器内核 = 纯 Python 标准库（计划书 §5.1 的 Rust 方案在本机无 Cargo 时不可用，
+#     因此用同一套事件时点架构的 Python 实现替代；接口保持一致，后续可原样移植回 Rust）
+#   * 测试 = 标准库 unittest（无需 pytest）
+#   * 配置文件 = YAML（可选，需 pyyaml）或 JSON

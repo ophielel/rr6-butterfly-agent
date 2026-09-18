@@ -1,0 +1,11 @@
+# Stage E：真实随机性（硬币 RNG + 速度 RNG + 技能抽取 RNG）
+coin_mode: rng
+speed_mode: rng
+skill_draw_mode: rng
+boss_ai: script
+deterministic: false
+boss_hp_scale: 0.5
+ally_sp: 30
+max_turns: 20
+# 评估时不要再纠结「一条神仙轴」，而是统计：
+#   最低理论回合 / 给定 SL 次数下的成功率 / 平均通关回合 / 平均重开次数

@@ -1,0 +1,1347 @@
+{
+  "_meta": {
+    "purpose": "7 个人格的可执行数据（技能 / 被动 / 初始资源）。数值需逐条校验。",
+    "game_version": "Ver. 1.114.0 (2026-09-18 快照)",
+    "wiki_accessible": false,
+    "note": "huijiwiki 在本机 403，无法直接取结构化数据；以下为按游戏机制重建的近似技能组（结构保真、数值待校验）。",
+    "skill_compact_format": "硬币可用 {\"coin_count\": N, \"coin\": {...}} 表示 N 枚完全相同的硬币。",
+    "confidence": "low"
+  },
+  "identities": [
+    {
+      "key": "solemn_yisang",
+      "name": "李箱 脑叶公司 E.G.O::庄严哀悼",
+      "name_short": "蝶箱",
+      "hp": 240,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        4,
+        8
+      ],
+      "slots": 1,
+      "deck": [
+        "yi_s1",
+        "yi_s2",
+        "yi_s3"
+      ],
+      "guard": "yi_guard",
+      "egos": [
+        "solemn_lament_yisang",
+        "yesteryear_yisang"
+      ],
+      "resources": {
+        "living_butterfly": 0
+      },
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 0.75,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "stagger_thresholds": [
+        144,
+        72
+      ],
+      "skills": [
+        {
+          "sid": "yi_s1",
+          "name": "蝶之舞",
+          "sin": "wrath",
+          "damage_type": "slash",
+          "base_power": 4,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 13,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "branch",
+                "branch_if": {
+                  "resource": {
+                    "key": "living_butterfly",
+                    "who": "self",
+                    "gte": 1
+                  }
+                },
+                "then": [
+                  {
+                    "kind": "consume_resource",
+                    "key": "living_butterfly",
+                    "amount": 1
+                  },
+                  {
+                    "kind": "add_status",
+                    "key": "dead_butterfly",
+                    "potency": 1,
+                    "count": 2,
+                    "target": "other"
+                  }
+                ]
+              }
+            ]
+          },
+          "description": "[命中时] 若拥有生蝶，消耗 1 层生蝶，对目标施加亡蝶。",
+          "confidence": "low"
+        },
+        {
+          "sid": "yi_s2",
+          "name": "振翅",
+          "sin": "gloom",
+          "damage_type": "pierce",
+          "base_power": 5,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 15,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 1,
+                "count": 2,
+                "target": "other"
+              },
+              {
+                "when": "on_hit",
+                "kind": "branch",
+                "branch_if": {
+                  "status": {
+                    "key": "dead_butterfly",
+                    "who": "other",
+                    "count_gte": 1
+                  }
+                },
+                "then": [
+                  {
+                    "kind": "modify_damage",
+                    "amount": 3
+                  }
+                ]
+              }
+            ]
+          },
+          "description": "[命中时] 施加沉沦；目标有亡蝶时额外伤害。",
+          "confidence": "low"
+        },
+        {
+          "sid": "yi_s3",
+          "name": "安魂",
+          "sin": "gloom",
+          "damage_type": "slash",
+          "base_power": 6,
+          "coin_count": 4,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 16,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 2,
+                "count": 2,
+                "target": "other"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "consume_resource",
+              "key": "living_butterfly",
+              "amount": 5,
+              "clamp": false
+            },
+            {
+              "when": "on_use",
+              "kind": "note_scale",
+              "from": "consumed",
+              "key": "living_butterfly",
+              "damage": 1
+            }
+          ],
+          "description": "[使用时] 消耗全部生蝶（最多 5），每层使本次伤害 +3。",
+          "confidence": "low"
+        },
+        {
+          "sid": "yi_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "description": "守备（本回合受到伤害 ×0.5）。",
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "turn_start",
+          "kind": "add_resource",
+          "key": "living_butterfly",
+          "amount": 2,
+          "max": 10,
+          "target": "self"
+        },
+        {
+          "when": "turn_start",
+          "kind": "branch",
+          "branch_if": {
+            "resource": {
+              "key": "living_butterfly",
+              "who": "self",
+              "gte": 8
+            }
+          },
+          "then": [
+            {
+              "kind": "add_status",
+              "key": "strong",
+              "potency": 1,
+              "count": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/李箱脑叶公司E.G.O::庄严哀悼",
+      "confidence": "low"
+    },
+    {
+      "key": "lantern_gregor",
+      "name": "格里高尔 脑叶公司 E.G.O::目灯",
+      "name_short": "目灯虫",
+      "hp": 255,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        3,
+        7
+      ],
+      "slots": 1,
+      "deck": [
+        "gr_s1",
+        "gr_s2",
+        "gr_s3"
+      ],
+      "guard": "gr_guard",
+      "egos": [
+        "solemn_lament_gregor"
+      ],
+      "resources": {
+        "lantern": 0
+      },
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 0.75,
+        "gloom": 1.0,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "stagger_thresholds": [
+        153,
+        76
+      ],
+      "skills": [
+        {
+          "sid": "gr_s1",
+          "name": "目灯",
+          "sin": "wrath",
+          "damage_type": "blunt",
+          "base_power": 5,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 14,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 1,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        },
+        {
+          "sid": "gr_s2",
+          "name": "眩惑之光",
+          "sin": "gloom",
+          "damage_type": "pierce",
+          "base_power": 5,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 14,
+            "effects": []
+          },
+          "confidence": "low",
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "add_status",
+              "key": "dazzle",
+              "count": 3,
+              "target": "other"
+            }
+          ]
+        },
+        {
+          "sid": "gr_s3",
+          "name": "凝视",
+          "sin": "gloom",
+          "damage_type": "blunt",
+          "base_power": 6,
+          "coin_count": 4,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 15,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 2,
+                "count": 1,
+                "target": "other"
+              },
+              {
+                "when": "on_hit",
+                "kind": "add_resource",
+                "key": "lantern",
+                "amount": 1,
+                "target": "self",
+                "max": 6
+              }
+            ]
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "status": {
+                  "key": "dazzle",
+                  "who": "other",
+                  "count_gte": 3
+                }
+              },
+              "then": [
+                {
+                  "kind": "modify_power",
+                  "amount": 2
+                }
+              ]
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "gr_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "turn_end",
+          "kind": "branch",
+          "branch_if": {
+            "resource": {
+              "key": "lantern",
+              "who": "self",
+              "gte": 3
+            }
+          },
+          "then": [
+            {
+              "kind": "consume_resource",
+              "key": "lantern",
+              "amount": 3
+            },
+            {
+              "kind": "add_status",
+              "key": "strong",
+              "potency": 1,
+              "count": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/格里高尔脑叶公司E.G.O:目灯",
+      "confidence": "low"
+    },
+    {
+      "key": "butler_faust",
+      "name": "浮士德 呼啸山庄管家",
+      "name_short": "管家浮",
+      "hp": 245,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        3,
+        8
+      ],
+      "slots": 1,
+      "deck": [
+        "fa_s1",
+        "fa_s2",
+        "fa_s3"
+      ],
+      "guard": "fa_guard",
+      "egos": [],
+      "resources": {},
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 0.75,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "stagger_thresholds": [
+        147,
+        73
+      ],
+      "skills": [
+        {
+          "sid": "fa_s1",
+          "name": "侍者之刃",
+          "sin": "lust",
+          "damage_type": "slash",
+          "base_power": 5,
+          "coin_count": 2,
+          "coin": {
+            "kind": "positive",
+            "power": 5,
+            "damage": 16,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 2,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        },
+        {
+          "sid": "fa_s2",
+          "name": "回响",
+          "sin": "gloom",
+          "damage_type": "pierce",
+          "base_power": 5,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 14,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "manor_echo",
+                "count": 2,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        },
+        {
+          "sid": "fa_s3",
+          "name": "山庄的送别",
+          "sin": "gloom",
+          "damage_type": "blunt",
+          "base_power": 6,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 17,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 3,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "status": {
+                  "key": "manor_echo",
+                  "who": "other",
+                  "count_gte": 2
+                }
+              },
+              "then": [
+                {
+                  "kind": "modify_power",
+                  "amount": 2
+                }
+              ]
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "fa_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "on_hit",
+          "kind": "branch",
+          "branch_if": {
+            "status": {
+              "key": "manor_echo",
+              "who": "other",
+              "count_gte": 1
+            }
+          },
+          "then": [
+            {
+              "kind": "heal_sp",
+              "amount": 2,
+              "target": "self"
+            }
+          ]
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/浮士德呼啸山庄管家",
+      "confidence": "low"
+    },
+    {
+      "key": "hanafuda_ishmael",
+      "name": "以实玛利 定事务所代表",
+      "name_short": "花札玛",
+      "hp": 235,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        4,
+        8
+      ],
+      "slots": 1,
+      "deck": [
+        "is_s1",
+        "is_s2",
+        "is_s3"
+      ],
+      "guard": "is_guard",
+      "egos": [
+        "yesteryear_ishmael"
+      ],
+      "resources": {
+        "hikari": 0
+      },
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 1.0,
+        "pride": 0.75,
+        "envy": 1.0
+      },
+      "stagger_thresholds": [
+        141,
+        70
+      ],
+      "skills": [
+        {
+          "sid": "is_s1",
+          "name": "抽牌",
+          "sin": "sloth",
+          "damage_type": "slash",
+          "base_power": 4,
+          "coin_count": 2,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 14,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_resource",
+                "key": "hikari",
+                "amount": 1,
+                "target": "self",
+                "max": 9
+              }
+            ]
+          },
+          "confidence": "low"
+        },
+        {
+          "sid": "is_s2",
+          "name": "花见",
+          "sin": "gloom",
+          "damage_type": "pierce",
+          "base_power": 5,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 15,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 1,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "resource": {
+                  "key": "hikari",
+                  "who": "self",
+                  "gte": 3
+                }
+              },
+              "then": [
+                {
+                  "kind": "consume_resource",
+                  "key": "hikari",
+                  "amount": 3
+                },
+                {
+                  "kind": "modify_power",
+                  "amount": 3
+                }
+              ]
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "is_s3",
+          "name": "光札·满开",
+          "sin": "gloom",
+          "damage_type": "blunt",
+          "base_power": 6,
+          "coin_count": 4,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 16,
+            "effects": []
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "resource": {
+                  "key": "hikari",
+                  "who": "self",
+                  "gte": 5
+                }
+              },
+              "then": [
+                {
+                  "kind": "consume_resource",
+                  "key": "hikari",
+                  "amount": 5
+                },
+                {
+                  "kind": "add_coin",
+                  "count": 1
+                },
+                {
+                  "kind": "modify_damage",
+                  "amount": 8
+                }
+              ]
+            },
+            {
+              "when": "on_use",
+              "kind": "add_status",
+              "key": "fragile",
+              "count": 1,
+              "target": "other"
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "is_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "turn_start",
+          "kind": "add_resource",
+          "key": "hikari",
+          "amount": 1,
+          "target": "self",
+          "max": 9
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/以实玛利定事务所代表",
+      "confidence": "low"
+    },
+    {
+      "key": "band_sinclair",
+      "name": "辛克莱 流浪乐队头目",
+      "name_short": "乐队辛",
+      "hp": 250,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        3,
+        7
+      ],
+      "slots": 1,
+      "deck": [
+        "si_s1",
+        "si_s2",
+        "si_s3"
+      ],
+      "guard": "si_guard",
+      "egos": [
+        "harmony_sinclair"
+      ],
+      "resources": {
+        "harmony": 0
+      },
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 0.75,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 1.0,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "stagger_thresholds": [
+        150,
+        75
+      ],
+      "skills": [
+        {
+          "sid": "si_s1",
+          "name": "序曲",
+          "sin": "pride",
+          "damage_type": "blunt",
+          "base_power": 4,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 13,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_resource",
+                "key": "harmony",
+                "amount": 1,
+                "target": "self",
+                "max": 9
+              }
+            ]
+          },
+          "confidence": "low"
+        },
+        {
+          "sid": "si_s2",
+          "name": "合奏",
+          "sin": "gloom",
+          "damage_type": "slash",
+          "base_power": 5,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 15,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 1,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "resource": {
+                  "key": "harmony",
+                  "who": "self",
+                  "gte": 3
+                }
+              },
+              "then": [
+                {
+                  "kind": "consume_resource",
+                  "key": "harmony",
+                  "amount": 3
+                },
+                {
+                  "kind": "modify_power",
+                  "amount": 2
+                }
+              ]
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "si_s3",
+          "name": "高潮",
+          "sin": "gloom",
+          "damage_type": "pierce",
+          "base_power": 6,
+          "coin_count": 4,
+          "coin": {
+            "kind": "positive",
+            "power": 4,
+            "damage": 16,
+            "effects": []
+          },
+          "confidence": "low",
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "add_status",
+              "key": "fragile",
+              "count": 1,
+              "target": "other"
+            }
+          ]
+        },
+        {
+          "sid": "si_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "turn_end",
+          "kind": "branch",
+          "branch_if": {
+            "resource": {
+              "key": "harmony",
+              "who": "self",
+              "lte": 4
+            }
+          },
+          "then": [
+            {
+              "kind": "add_resource",
+              "key": "harmony",
+              "amount": 1,
+              "target": "self",
+              "max": 9
+            }
+          ]
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/辛克莱流浪乐队头目",
+      "confidence": "low"
+    },
+    {
+      "key": "lca_outis",
+      "name": "奥提斯 LCA 瓦吉特先锋三队队长",
+      "name_short": "LCA奥",
+      "hp": 260,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 52,
+      "speed_range": [
+        3,
+        7
+      ],
+      "slots": 1,
+      "deck": [
+        "ou_s1",
+        "ou_s2",
+        "ou_s3"
+      ],
+      "guard": "ou_guard",
+      "egos": [],
+      "resources": {
+        "ammo": 6
+      },
+      "resistances": {
+        "slash": 0.75,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 1.0,
+        "pride": 1.0,
+        "envy": 0.75
+      },
+      "stagger_thresholds": [
+        156,
+        78
+      ],
+      "skills": [
+        {
+          "sid": "ou_s1",
+          "name": "制式手枪",
+          "sin": "envy",
+          "damage_type": "pierce",
+          "base_power": 4,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 12,
+            "effects": []
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "consume_resource",
+              "key": "ammo",
+              "amount": 1,
+              "clamp": false
+            },
+            {
+              "when": "on_use",
+              "kind": "note_scale",
+              "from": "consumed",
+              "key": "ammo",
+              "damage": 1
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "ou_s2",
+          "name": "破甲弹",
+          "sin": "envy",
+          "damage_type": "slash",
+          "base_power": 5,
+          "coin_count": 4,
+          "coin": {
+            "kind": "positive",
+            "power": 3,
+            "damage": 13,
+            "effects": []
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "consume_resource",
+              "key": "ammo",
+              "amount": 1,
+              "clamp": false
+            },
+            {
+              "when": "on_use",
+              "kind": "note_scale",
+              "from": "consumed",
+              "key": "ammo",
+              "damage": 1
+            },
+            {
+              "when": "on_use",
+              "kind": "add_status",
+              "key": "shadow_crack",
+              "count": 2,
+              "target": "other"
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "ou_s3",
+          "name": "压制扫射",
+          "sin": "wrath",
+          "damage_type": "blunt",
+          "base_power": 6,
+          "coin_count": 3,
+          "coin": {
+            "kind": "positive",
+            "power": 5,
+            "damage": 15,
+            "effects": []
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "consume_resource",
+              "key": "ammo",
+              "amount": 2,
+              "clamp": false
+            },
+            {
+              "when": "on_use",
+              "kind": "note_scale",
+              "from": "consumed",
+              "key": "ammo",
+              "damage": 2
+            },
+            {
+              "when": "on_use",
+              "kind": "add_status",
+              "key": "fragile",
+              "count": 2,
+              "target": "other"
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "ou_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "turn_start",
+          "kind": "branch",
+          "branch_if": {
+            "resource": {
+              "key": "ammo",
+              "who": "self",
+              "lte": 0
+            }
+          },
+          "then": [
+            {
+              "kind": "add_resource",
+              "key": "ammo",
+              "amount": 4,
+              "target": "self",
+              "max": 6
+            }
+          ]
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/奥提斯LCA瓦吉特先锋三队队长",
+      "confidence": "low"
+    },
+    {
+      "key": "despair_rodion",
+      "name": "罗佳 脑叶公司 E.G.O::泪锋之剑",
+      "name_short": "绝望罗",
+      "hp": 265,
+      "sp": 0,
+      "offense_level": 50,
+      "defense_level": 50,
+      "speed_range": [
+        3,
+        7
+      ],
+      "slots": 1,
+      "deck": [
+        "ro_s1",
+        "ro_s2",
+        "ro_s3"
+      ],
+      "guard": "ro_guard",
+      "egos": [
+        "frost_claw_rodion"
+      ],
+      "resources": {},
+      "resistances": {
+        "slash": 1.0,
+        "pierce": 1.0,
+        "blunt": 1.0
+      },
+      "sin_resistances": {
+        "wrath": 1.0,
+        "lust": 1.0,
+        "sloth": 1.0,
+        "gluttony": 1.0,
+        "gloom": 0.75,
+        "pride": 1.0,
+        "envy": 1.0
+      },
+      "stagger_thresholds": [
+        159,
+        79
+      ],
+      "skills": [
+        {
+          "sid": "ro_s1",
+          "name": "泪锋",
+          "sin": "gloom",
+          "damage_type": "slash",
+          "base_power": 5,
+          "coin_count": 2,
+          "coin": {
+            "kind": "negative",
+            "power": 4,
+            "damage": 16,
+            "effects": []
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "sp": {
+                  "who": "self",
+                  "lte": 0
+                }
+              },
+              "then": [
+                {
+                  "kind": "modify_power",
+                  "amount": 2
+                }
+              ]
+            }
+          ],
+          "description": "负硬币。精神力 ≤ 0 时拼点威力 +2。",
+          "confidence": "low"
+        },
+        {
+          "sid": "ro_s2",
+          "name": "绝望之刺",
+          "sin": "gloom",
+          "damage_type": "pierce",
+          "base_power": 6,
+          "coin_count": 3,
+          "coin": {
+            "kind": "negative",
+            "power": 4,
+            "damage": 17,
+            "effects": [
+              {
+                "when": "on_hit",
+                "kind": "add_status",
+                "key": "sinking",
+                "potency": 2,
+                "count": 1,
+                "target": "other"
+              }
+            ]
+          },
+          "confidence": "low"
+        },
+        {
+          "sid": "ro_s3",
+          "name": "剑舞",
+          "sin": "gloom",
+          "damage_type": "blunt",
+          "base_power": 7,
+          "coin_count": 3,
+          "coin": {
+            "kind": "negative",
+            "power": 5,
+            "damage": 18,
+            "effects": []
+          },
+          "effects": [
+            {
+              "when": "on_use",
+              "kind": "branch",
+              "branch_if": {
+                "sp": {
+                  "who": "self",
+                  "lte": -10
+                }
+              },
+              "then": [
+                {
+                  "kind": "modify_damage_mult",
+                  "mult": 1.5
+                }
+              ]
+            }
+          ],
+          "confidence": "low"
+        },
+        {
+          "sid": "ro_guard",
+          "name": "守备",
+          "sin": "sloth",
+          "damage_type": "blunt",
+          "base_power": 8,
+          "coin_count": 1,
+          "coin": {
+            "kind": "positive",
+            "power": 6,
+            "damage": 0,
+            "effects": []
+          },
+          "confidence": "low"
+        }
+      ],
+      "passive_effects": [
+        {
+          "when": "turn_start",
+          "kind": "branch",
+          "branch_if": {
+            "sp": {
+              "who": "self",
+              "lte": 0
+            }
+          },
+          "then": [
+            {
+              "kind": "add_status",
+              "key": "despair",
+              "potency": 1,
+              "count": 1,
+              "target": "self"
+            }
+          ]
+        },
+        {
+          "when": "turn_start",
+          "kind": "branch",
+          "branch_if": {
+            "sp": {
+              "who": "self",
+              "lte": -20
+            }
+          },
+          "then": [
+            {
+              "kind": "add_status",
+              "key": "blessing",
+              "count": 1,
+              "target": "self"
+            }
+          ]
+        }
+      ],
+      "source": "https://limbuscompany.huijiwiki.com/wiki/罗佳脑叶公司E.G.O::泪锋之剑",
+      "confidence": "low"
+    }
+  ]
+}

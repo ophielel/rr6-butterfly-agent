@@ -1,0 +1,25 @@
+# 消融实验矩阵（计划书 §17）。每一项只改一个开关，其余与 base 相同。
+# 用法：python3 scripts/benchmark.py 会内置这套矩阵（见该脚本 variants）。
+
+# A. 完整角色 + 完整 E.G.O（基线）
+# B/C/D. 逐个禁用关键 E.G.O
+#   disabled_egos: ["solemn_lament_yisang"]                  # B 禁用蝶箱庄严哀悼
+#   disabled_egos: ["solemn_lament_gregor"]                  # C 禁用目灯虫庄严哀悼
+#   disabled_egos: ["harmony_sinclair"]                       # D 禁用辛克莱和声
+# E. 重复硬币功能关闭
+repeat_coin_enabled: false
+# F. 沉沦命中触发关闭
+sinking_enabled: false
+# G. 「蝶」特殊沉沦关闭，只保留普通伤害
+butterfly_special_sinking: false
+# H. 无限 E.G.O 资源 -> 有限资源（本实现只有罪孽资源开关；SP 始终为真）
+sin_resources: finite
+# I. 固定硬币 -> 真实硬币 RNG
+coin_mode: rng
+# J. 固定速度 -> 真实速度 RNG
+speed_mode: rng
+
+# 说明：以上开关同时列在一个文件里只是为了查阅；
+# 真正跑消融时请单独覆盖对应字段（rr6sim.SimConfig(**kwargs)）。
+boss_hp_scale: 0.5
+max_turns: 20

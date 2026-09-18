@@ -1,0 +1,12 @@
+# Stage A：纯确定性验证环境（计划书 §10）
+# 固定速度、固定技能牌序、固定硬币结果、Boss 技能序列固定。
+coin_mode: script
+coin_script: [true, false, true, true, false, true, false, true,
+              false, false, true, true, true, false, true, false]
+speed_mode: fixed
+skill_draw_mode: fixed
+boss_ai: script
+deterministic: true
+boss_hp_scale: 0.5
+ally_sp: 30
+max_turns: 20
